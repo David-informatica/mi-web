@@ -12,7 +12,7 @@ from typing import List, Optional, Literal
 class FormacionItem:
     titulo: str
     institucion: str
-    tipo: Literal["oficial", "complementaria"]
+    tipo: Literal["oficial", "complementaria"] # las que no tienen default van antes de las que si que tienen
     descripcion: Optional[str] = None
     logros: Optional[str] = None
     fecha: Optional[str] = None
