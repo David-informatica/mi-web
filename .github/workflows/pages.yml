@@ -1,0 +1,83 @@
+name: Build and Deploy CV to GitHub Pages
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # (Opcional) Si en el futuro quieres generar el parser/lexer desde un .g4,
+      # puedes descomentar este bloque y añadir la ruta correcta.
+      #
+      # - name: Setup Java (only if you generate ANTLR code)
+      #   uses: actions/setup-java@v4
+      #   with:
+      #     distribution: "temurin"
+      #     java-version: "17"
+      #
+      # - name: Generate ANTLR Python sources (optional)
+      #   run: |
+      #     # Ejemplo: si tuvieras grammar/Grammar.g4 y quisieras generar a src/generated
+      #     # curl -L -o antlr.jar https://www.antlr.org/download/antlr-4.13.1-complete.jar
+      #     # java -jar antlr.jar -Dlanguage=Python3 -o src/generated grammar/Grammar.g4
+      #     echo "Skipping ANTLR generation (using pre-generated parser)"
+
+      - name: Sanity check templates
+        run: |
+          test -f templates/plantilla_cv.html
+
+      - name: Generate site (index.html)
+        run: |
+          python salida.py
+          test -f index.html
+
+      - name: Prepare Pages artifact
+        run: |
+          mkdir -p site
+          cp index.html site/index.html
+          # Tu CSS fijo (no se modifica):
+          cp styles.css site/styles.css
+
+          # Si luego añades imágenes u otros assets, descomenta y adapta:
+          # cp -r assets site/assets || true
+          # cp -r img site/img || true
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+    steps:
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v4

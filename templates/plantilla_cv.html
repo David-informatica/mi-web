@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>{{ datos.nombre }} - CV</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        h1, h2, h3 { color: #333; }
+        ul { list-style-type: none; padding: 0; }
+        li { margin-bottom: 8px; }
+        .section { margin-bottom: 30px; }
+    </style>
+</head>
+<body>
+    <h1>{{ datos.nombre }}</h1>
+    {% if datos.foto %}
+        <img src="{{ datos.foto }}" alt="Foto de {{ datos.nombre }}" width="120">
+    {% endif %}
+    <p><strong>Email:</strong> {{ datos.email }}</p>
+    <p><strong>Teléfono:</strong> {{ datos.telefono }}</p>
+    <p><strong>LinkedIn:</strong> {{ datos.linkedin }}</p>
+    <p><strong>GitHub:</strong> {{ datos.github }}</p>
+    <p><strong>Web:</strong> {{ datos.web }}</p>
+    <p><em>{{ datos.bio }}</em></p>
+
+    <div class="section">
+        <h2>Formación</h2>
+        <ul>
+        {% for f in formacion.formacion %}
+            <li>
+                <strong>{{ f.titulo }}</strong> — {{ f.institucion }} ({{ f.fecha }})
+                {% if f.descripcion %}<br>{{ f.descripcion }}{% endif %}
+                {% if f.logros %}<br><em>{{ f.logros }}</em>{% endif %}
+                {% if f.en_curso %}<br><strong>En curso</strong>{% endif %}
+            </li>
+        {% endfor %}
+        </ul>
+    </div>
+
+    <div class="section">
+        <h2>Idiomas</h2>
+        <ul>
+        {% for i in idiomas.idiomas %}
+            <li>{{ i.nombre }} — {{ i.nivel }}
+                {% if i.expedidor %}( {{ i.expedidor }} ){% endif %}
+            </li>
+        {% endfor %}
+        </ul>
+    </div>
+
+    <div class="section">
+        <h2>Experiencia</h2>
+        <ul>
+        {% for e in experiencia.experiencia %}
+            <li>
+                <strong>{{ e.puesto }}</strong> — {{ e.organizacion }} ({{ e.tipo }})
+                {% if e.horas %} · {{ e.horas }} h/sem{% endif %}
+                {% if e.descripcion %}<br><em>{{ e.descripcion }}</em>{% endif %}
+            </li>
+        {% endfor %}
+        </ul>
+    </div>
+
+    <div class="section">
+        <h2>Habilidades</h2>
+        <ul>
+        {% for h in habilidades.habilidades %}
+            <li>
+                {{ h.nombre }}
+                {% if h.tipo %} — {{ h.tipo }}{% endif %}
+                {% if h.categoria %} · {{ h.categoria }}{% endif %}
+                {% if h.nivel %} · {{ h.nivel }}{% endif %}
+            </li>
+        {% endfor %}
+        </ul>
+    </div>
+
+    <div class="section">
+        <h2>Portafolio</h2>
+        <h3>Proyectos</h3>
+        <ul>
+        {% for p in portafolio.proyectos %}
+            <li>
+                <strong>{{ p.nombre }}</strong> — {{ p.categoria }}
+                {% if p.web %}<br><a href="{{ p.web }}">{{ p.web }}</a>{% endif %}
+                <br>{{ p.descripcion }}
+                <br>Tecnologías: {{ p.tecnologias|join(', ') }}
+                {% if p.grupo %}<br>Equipo: {{ p.grupo|join(', ') }}{% endif %}
+            </li>
+        {% endfor %}
+        </ul>
+
+        <h3>Méritos</h3>
+        <ul>
+        {% for m in portafolio.meritos %}
+            <li><strong>{{ m.nombre }}</strong>: {{ m.descripcion }}</li>
+        {% endfor %}
+        </ul>
+    </div>
+</body>
+</html>
