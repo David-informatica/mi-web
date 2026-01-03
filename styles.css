@@ -1,110 +1,89 @@
-/* ===== TIPOGRAFÍA Y BASE ===== */
-body {
-    font-family: "Inter", Arial, sans-serif;
-    background: #f3f4f6;
+/* Reset muy básico */
+* {
+    box-sizing: border-box;
     margin: 0;
     padding: 0;
-    display: flex;
-    justify-content: center;
-}
-
-.container {
-    max-width: 850px;
-    background: #ffffff;
-    margin: 40px;
-    padding: 50px;
-    border-radius: 18px;
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
-}
-
-/* ===== TITULARES ===== */
-h1 {
-    font-size: 42px;
-    margin-bottom: 5px;
-    color: #111827;
-}
-
-h2 {
-    font-size: 26px;
-    margin-top: 40px;
-    color: #1f2937;
-    border-bottom: 2px solid #e5e7eb;
-    padding-bottom: 6px;
-}
-
-h3 {
-    font-size: 20px;
-    margin-top: 20px;
-    color: #374151;
-}
-
-/* ===== TEXTO ===== */
-p, li {
-    font-size: 16px;
+  }
+  
+  /* Base */
+  body {
+    font-family: Arial, Helvetica, sans-serif;
+    background-color: #f4f6f8;
+    color: #222;
     line-height: 1.6;
-    color: #4b5563;
-}
-
-strong {
-    color: #111827;
-}
-
-em {
-    color: #6b7280;
-}
-
-/* ===== LISTAS ===== */
-ul {
-    list-style: none;
-    padding-left: 0;
-}
-
-ul li {
+  }
+  
+  /* Contenedor principal */
+  .cv {
+    max-width: 900px;
+    margin: 40px auto;
+    background: #ffffff;
+    padding: 32px;
+    border-radius: 8px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+  }
+  
+  /* Encabezado */
+  header {
+    border-bottom: 2px solid #e0e0e0;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+  }
+  
+  header h1 {
+    font-size: 2.2rem;
+    margin-bottom: 4px;
+  }
+  
+  header p {
+    color: #555;
+  }
+  
+  /* Secciones */
+  section {
+    margin-bottom: 28px;
+  }
+  
+  section h2 {
+    font-size: 1.4rem;
     margin-bottom: 12px;
-    padding-left: 12px;
-    border-left: 3px solid #3b82f6; /* Azul elegante */
-}
-
-/* ===== SECCIONES ===== */
-.section {
-    margin-bottom: 40px;
-}
-
-/* ===== ENLACES ===== */
-a {
-    color: #2563eb;
-    text-decoration: none;
-    font-weight: 500;
-}
-
-a:hover {
-    text-decoration: underline;
-}
-
-/* ===== CABECERA DE DATOS PERSONALES ===== */
-.header-info p {
-    margin: 2px 0;
-}
-
-/* ===== MEDALLAS / MÉRITOS ===== */
-.badge {
-    display: inline-block;
-    background: #e0f2fe;
-    color: #0369a1;
-    padding: 6px 12px;
-    border-radius: 10px;
-    font-size: 14px;
-    margin: 5px;
-}
-
-/* ===== RESPONSIVE ===== */
-@media(max-width: 700px) {
-    .container {
-        margin: 10px;
-        padding: 25px;
-    }
-
-    h1 {
-        font-size: 32px;
-    }
-}
+    color: #1e88e5;
+    border-bottom: 1px solid #ddd;
+    padding-bottom: 4px;
+  }
+  
+  /* Items */
+  .item {
+    margin-bottom: 16px;
+  }
+  
+  .item h3 {
+    font-size: 1.1rem;
+    margin-bottom: 2px;
+  }
+  
+  .item .meta {
+    font-size: 0.9rem;
+    color: #666;
+    margin-bottom: 6px;
+  }
+  
+  .item ul {
+    margin-left: 18px;
+  }
+  
+  /* Listas simples (habilidades, idiomas) */
+  .list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .list span {
+    background: #e3f2fd;
+    color: #0d47a1;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.85rem;
+  }
+  
