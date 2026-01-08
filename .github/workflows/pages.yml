@@ -32,8 +32,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # (Opcional) Si en el futuro quieres generar el parser/lexer desde un .g4,
-      # puedes descomentar este bloque y añadir la ruta correcta.
+      # Para generar el parser/lexer desde el .g4,
       #
       # - name: Setup Java (only if you generate ANTLR code)
       #   uses: actions/setup-java@v4
@@ -61,7 +60,7 @@ jobs:
         run: |
           mkdir -p site
           cp index.html site/index.html
-          # Tu CSS fijo (no se modifica):
+          # CSS fijo (no se modifica):
           cp styles.css site/styles.css
 
           # Si luego añades imágenes u otros assets, descomenta y adapta:
