@@ -96,7 +96,10 @@ IDENT           : '"' CONJPALYNUM '"' ;
 CONJPALYNUM     : PAL (','? (WS (PAL | NUM)) '.'?)* ;
 
 // ======== Manejo de errores ========
-ERROR : . { System.err.println("Error léxico: carácter no reconocido " + getText()); } ;
+ERROR
+    : .
+      { raise Exception(f"Error lexico: caracter no reconocido '{self.text}' en linea {self.line}, columna {self.column}") }
+    ;
 
 // ========== Sintaxis ==========
 start:          cvs EOF ;
