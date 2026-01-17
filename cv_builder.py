@@ -65,10 +65,16 @@ class BuildObjectsVisitor(CVLangVisitor):
 
     # ---------- ENTRY ----------
     # Puedes arrancar llamando visitor.visit(tree) donde tree sea parser.start() o parser.cv()
-    def visitStart(self, ctx: CVLangParser.StartContext):
-        return self.visit(ctx.cv())
+    def visitStart(self, ctx):
+        return self.visit(ctx.cvs())
 
     # ---------- TOP ----------
+    def visitCvs(self, ctx):
+        cvs = ctx.cv()
+        if not cvs:
+            raise ValueError("No se encontró ningún bloque cv en el archivo.")
+        return self.visit(cvs[0])  # o itera si quieres varios
+
     def visitCv(self, ctx: CVLangParser.CvContext):
         self.visit(ctx.cvId())
         self.visit(ctx.datospersonales())
