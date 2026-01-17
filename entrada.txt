@@ -1,6 +1,6 @@
-cv "Antonio Lobato" {
+cv "Antonio Lobatosss" {
   datospersonales {
-    nomyape (Antonio Lobato)
+    nomyape (Antonio Lobatosss)
     fecha (10/01/2026)
     bio (Soy Antonio Lobato y vengo a comprarte tu coche)
     contacto {
