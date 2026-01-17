@@ -1,0 +1,3 @@
+*.sh
+*.antlr
+__pycache__/

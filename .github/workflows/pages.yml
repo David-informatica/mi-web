@@ -32,40 +32,41 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # Para generar el parser/lexer desde el .g4,
-      #
-      # - name: Setup Java (only if you generate ANTLR code)
-      #   uses: actions/setup-java@v4
-      #   with:
-      #     distribution: "temurin"
-      #     java-version: "17"
-      #
-      # - name: Generate ANTLR Python sources (optional)
-      #   run: |
-      #     # Ejemplo: si tuvieras grammar/Grammar.g4 y quisieras generar a src/generated
-      #     # curl -L -o antlr.jar https://www.antlr.org/download/antlr-4.13.1-complete.jar
-      #     # java -jar antlr.jar -Dlanguage=Python3 -o src/generated grammar/Grammar.g4
-      #     echo "Skipping ANTLR generation (using pre-generated parser)"
+      - name: Setup Java (for ANTLR)
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
 
-      - name: Sanity check templates
+      - name: Generate ANTLR Python sources
         run: |
-          test -f templates/plantilla_cv.html
+          curl -L -o antlr.jar https://www.antlr.org/download/antlr-4.13.2-complete.jar
+          # Limpia generados previos por si acaso
+          rm -f CVLangLexer.py CVLangParser.py CVLangVisitor.py CVLangListener.py CVLang.tokens CVLang.interp
+          java -jar antlr.jar -Dlanguage=Python3 -visitor CVLang.g4
+
+      - name: Sanity checks
+        run: |
+          test -f plantilla_cv.html || test -f templates/plantilla_cv.html
+          test -f styles.css
+          test -f entrada.txt
+          test -f main.py
 
       - name: Generate site (index.html)
         run: |
-          python salida.py
+          python main.py
           test -f index.html
 
       - name: Prepare Pages artifact
         run: |
           mkdir -p site
           cp index.html site/index.html
-          # CSS fijo (no se modifica):
           cp styles.css site/styles.css
 
-          # Si luego añades imágenes u otros assets, descomenta y adapta:
-          # cp -r assets site/assets || true
-          # cp -r img site/img || true
+          # Si tienes carpeta de imágenes (como en tu DSL: imagenes/foto_perfil.jpg)
+          if [ -d "imagenes" ]; then cp -r imagenes site/imagenes; fi
+          if [ -d "assets" ]; then cp -r assets site/assets; fi
+          if [ -d "img" ]; then cp -r img site/img; fi
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

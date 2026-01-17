@@ -1,0 +1,88 @@
+/* Esto es un comentario   */
+
+cv {
+  id (CurriculumPrueba)
+
+  datospersonales {
+    nomyape(Juan Pérez)
+    foto(imagenes/foto_perfil.jpg)
+    fecha(15/06/1995)
+    bio(Desarrollador de software con experiencia en Java y Python)
+    contacto {
+      email(juan.perez@example.com)
+      telefono(123456789)
+      redes {
+        linkedin(linkedin.com/in/juanperez)
+        github(github.com/juanperez)
+        web(juanperez.dev)
+      }
+    }
+  }
+
+  formacion {
+    oficial {
+      titulo(Ingeniería en Sistemas)
+      expedidor(Universidad Nacional)
+      descripcion(Estudios enfocados en desarrollo de software)
+      logros(Graduado con honores)
+      fecha(12/12/2020)
+    }
+    complementaria {
+      titulo(Curso de Ciberseguridad)
+      certificado(Si)
+      horas(40)
+      fecha(En_curso)
+    }
+  }
+
+  idiomas {
+    idioma(
+      Inglés
+      nivel(B2)
+      expedidor(Instituto Oxford)
+    )
+    idioma(
+      Español
+      nivel(nativo)
+    )
+  }
+
+  experiencia {
+    laboral{
+      organizacion(TechCorp)
+      puesto(Desarrollador Java)
+      horas(160)
+      responsabilidades(Desarrollo de APIs REST)
+    }
+    voluntariado{
+      puesto(Mentor de programación)
+      descripcion(Apoyo a estudiantes)
+      horas(60)
+      organizacion(CodeForGood)
+    }
+  }
+
+  habilidades {
+    soft{
+      habilidad(Comunicación)
+    }
+    hard{
+      habilidad(Java)
+      categoria(Programación)
+      nvhab(alto)
+    }
+  }
+
+  portafolio {
+    proyecto{
+      nombre(Lenguaje CV)
+      descripcion(Lenguaje de programación de CV)
+      categoria(Procesadores de Lenguaje)
+      tecnologias(Jflex)
+    }
+    meritos{
+      nombre(Nota máxima)
+      descripcion(Se adquirió la nota máxima en el trabajo)
+    }
+  }
+}
