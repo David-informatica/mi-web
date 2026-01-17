@@ -83,8 +83,6 @@ UNOPENED_COMMENT
 // ======== Macros ========
 
 WS              : [ \t\r\n]+ -> skip ;
-NUM             : ('0' | [1-9][0-9]*) ;
-PAL             : [A-Za-zÁÉÍÓÚáéíóúÑñ]+ ;
 TFNO            : ([5-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]) ;
 MAIL            : [A-Za-z0-9]+ ('.' [A-Za-z0-9]+)* '@' [A-Za-z0-9]+ ('.' [A-Za-z0-9]+)* ;
 RUTA            : [A-Za-z]+ ( [./\-:]+ [A-Za-z]+ )+ ;
@@ -94,6 +92,8 @@ NVI             : ([ABC][12]) | 'nativo' ;
 NVH             : 'bajo' | 'medio' | 'alto' ;
 IDENT           : '"' CONJPALYNUM '"' ;
 CONJPALYNUM     : PAL (','? (WS (PAL | NUM)) '.'?)* ;
+NUM             : ('0' | [1-9][0-9]*) ;
+PAL             : [A-Za-zÁÉÍÓÚáéíóúÑñ]+ ;
 
 // ======== Manejo de errores ========
 ERROR
