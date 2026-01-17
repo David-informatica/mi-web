@@ -21,7 +21,7 @@ def parse_cv(input_path: str):
     return objs
 
 
-def render_html(objs, template_dir: str = ".", template_name: str = "plantilla_cv.html") -> str:
+def render_html(objs, template_dir: str = "templates/", template_name: str = "plantilla_cv.html") -> str:
     env = Environment(loader=FileSystemLoader(template_dir))
     template = env.get_template(template_name)
 

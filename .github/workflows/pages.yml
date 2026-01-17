@@ -47,7 +47,7 @@ jobs:
 
       - name: Sanity checks
         run: |
-          test -f plantilla_cv.html || test -f templates/plantilla_cv.html
+          test -f templates/plantilla_cv.html
           test -f styles.css
           test -f entrada.txt
           test -f main.py
