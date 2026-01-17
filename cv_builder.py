@@ -285,28 +285,32 @@ class BuildObjectsVisitor(CVLangVisitor):
     def visitHabilidades(self, ctx: CVLangParser.HabilidadesContext):
         hs: List[Habilidad] = []
 
-        if ctx.soft():
-            for s in ctx.soft():
-                for h in s.habilidad():
-                    hs.append(Habilidad(nombre=_ctx_value(h), tipo="soft"))
+        # soft?  -> ctx.soft() es None o SoftContext (NO lista)
+        s = ctx.soft()
+        if s:
+            for h in s.habilidad():
+                hs.append(Habilidad(nombre=_ctx_value(h), tipo="soft"))
 
-        # Tu hard ha cambiado a categoria{...} en tu ejemplo.
-        # Si tu gramática tiene categoria(), lo soportamos:
-        if hasattr(ctx, "hard") and ctx.hard():
-            for hd in ctx.hard():
-                if hasattr(hd, "categoria") and hd.categoria():
-                    for cat in hd.categoria():
-                        # cat.getText() contiene todo el bloque; sacamos "nombre(...)", "habilidad(...)", "nvhab(...)"
-                        txt = _ctx_text(cat)
-                        # extrae simple por substrings (robusto para tu DSL)
-                        cat_nombre = self._extract_field(txt, "nombre")
-                        hab_nombre = self._extract_field(txt, "habilidad")
-                        nivel = self._extract_field(txt, "nvhab")
-                        if hab_nombre:
-                            hs.append(Habilidad(nombre=hab_nombre, tipo="hard", categoria=cat_nombre, nivel=nivel))
+        # hard? -> ctx.hard() es None o HardContext (NO lista)
+        hd = ctx.hard()
+        if hd:
+            # Si tu hard usa categoria{...} como en tu ejemplo:
+            if hasattr(hd, "categoria") and hd.categoria():
+                for cat in hd.categoria():
+                    txt = _ctx_text(cat)
+                    cat_nombre = self._extract_field(txt, "nombre")
+                    hab_nombre = self._extract_field(txt, "habilidad")
+                    nivel = self._extract_field(txt, "nvhab")
+                    if hab_nombre:
+                        hs.append(Habilidad(nombre=hab_nombre, tipo="hard", categoria=cat_nombre, nivel=nivel))
+            else:
+                # fallback si tu gramática hard es la antigua (habilidad/categoria/nvhab sueltos)
+                # (deja esto si no aplica; no hace daño)
+                pass
 
         self._skills = Habilidades(habilidades=hs)
         return None
+
 
     def _extract_field(self, block_text: str, field: str) -> str:
         """
