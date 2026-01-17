@@ -71,10 +71,19 @@ ERR_COMMENT_CLOSE
     ;
 
 COMMENT
-    : '/*' .*? '*/'      { skip(); }                      // Comentario bien cerrado
-    | '/*' .*?  EOF      { System.err.println("Error léxico: comentario no cerrado antes del fin de archivo."); skip(); }
-    | '*/' .*?  EOF      { System.err.println("Error léxico: comentario no abierto."); skip(); }
+    : '/*' .*? '*/' -> skip
     ;
+
+UNCLOSED_COMMENT
+    : '/*' .*? EOF
+      { raise Exception("Error lexico: comentario no cerrado antes del fin de archivo."); }
+    ;
+
+UNOPENED_COMMENT
+    : '*/'
+      { raise Exception("Error lexico: comentario no abierto."); }
+    ;
+
 
 // ======== Macros ========
 
