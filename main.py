@@ -39,7 +39,7 @@ def render_html(objs, template_dir: str = "templates/", template_name: str = "pl
 if __name__ == "__main__":
     objs = parse_cv("entrada.txt")
 
-    html = render_html(objs, template_dir=".", template_name="plantilla_cv.html")
+    html = render_html(objs, template_dir="templates/", template_name="plantilla_cv.html")
 
     with open("index.html", "w", encoding="utf-8") as f:
         f.write(html)
