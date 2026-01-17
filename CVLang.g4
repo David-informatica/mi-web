@@ -95,6 +95,8 @@ CONJPALYNUM     : PAL (','? (WS (PAL | NUM)) '.'?)* ;
 ERROR : . { System.err.println("Error léxico: carácter no reconocido " + getText()); } ;
 
 // ========== Sintaxis ==========
+start:          cvs EOF ;
+
 cvs:            global_var? cv+ ;
         
 global_var:     GVAR LL_A variable+ LL_C ;
