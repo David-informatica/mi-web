@@ -14,6 +14,7 @@ from CVLangVisitor import CVLangVisitor
 from CVLangParser import CVLangParser
 
 
+# ---------- helpers de texto ----------
 def _unquote(s: str) -> str:
     s = s.strip()
     if len(s) >= 2 and s[0] == '"' and s[-1] == '"':
@@ -21,13 +22,34 @@ def _unquote(s: str) -> str:
     return s
 
 
-def _v(ctx) -> str:
-    """Extrae texto de una regla (por ejemplo value/ident) y limpia comillas si procede."""
-    return _unquote(ctx.getText().strip())
+def _inside_parens(s: str) -> str:
+    """
+    Convierte:
+      'nomyape(Antonio Lobato)' -> 'Antonio Lobato'
+      '(Antonio Lobato)'       -> 'Antonio Lobato'
+    Si no hay paréntesis, devuelve el string original.
+    """
+    s = s.strip()
+    if "(" in s and s.endswith(")"):
+        return s[s.find("(") + 1 : -1].strip()
+    if s.startswith("(") and s.endswith(")"):
+        return s[1:-1].strip()
+    return s
+
+
+def _ctx_text(ctx) -> str:
+    return ctx.getText().strip()
+
+
+def _ctx_value(ctx) -> str:
+    # Saca el texto del nodo y devuelve lo de dentro de (...)
+    return _unquote(_inside_parens(_ctx_text(ctx)))
 
 
 def _split_tecnologias(s: str) -> List[str]:
     raw = s.strip()
+    if not raw:
+        return []
     if "," in raw:
         return [t.strip() for t in raw.split(",") if t.strip()]
     return [t.strip() for t in raw.split() if t.strip()]
@@ -72,27 +94,31 @@ class BuildObjectsVisitor(CVLangVisitor):
 
     # ---------- ENTRY ----------
     def visitStart(self, ctx: CVLangParser.StartContext):
-        # start: cvs EOF ;
         return self.visit(ctx.cvs())
 
     def visitCvs(self, ctx: CVLangParser.CvsContext):
-        # cvs: cv+ ;
         cvs = ctx.cv()
         if not cvs:
             raise ValueError("No se encontró ningún bloque cv en el archivo.")
+        # Si hay varios cv, aquí podrías iterar. Por ahora, usamos el primero:
         return self.visit(cvs[0])
 
     # ---------- CV ----------
     def visitCv(self, ctx: CVLangParser.CvContext):
-        # ❗️AQUI VA EL CAMBIO: ya NO existe ctx.cvId()
-
-        # ===== Variante A (si tu cabecera es: cv IDENT { ... }) =====
-        # self._cv_id = _unquote(ctx.IDENT().getText())
-
-        # ===== Variante B (si tu cabecera es: cv value { ... }) =====
-        # self._cv_id = _v(ctx.value())
-
-        # ===========================================================
+        # Dependiendo de tu gramática, el nombre puede ser IDENT o algo similar.
+        # Lo más robusto: usa getText() y extrae lo que haya tras 'cv'.
+        # Si tu cv es: cv "Antonio Lobato" { ... }
+        # suele existir IDENT() en el contexto.
+        if hasattr(ctx, "IDENT") and ctx.IDENT():
+            self._cv_id = _unquote(ctx.IDENT().getText())
+        else:
+            # fallback: intenta capturar el "nombre" desde el texto completo
+            full = _ctx_text(ctx)
+            # full empieza por "cv..." -> toma hasta la primera '{'
+            head = full.split("{", 1)[0].strip()
+            # quita el 'cv'
+            head = head[2:].strip() if head.lower().startswith("cv") else head
+            self._cv_id = _unquote(head) if head else "CV"
 
         self.visit(ctx.datospersonales())
         self.visit(ctx.formacion())
@@ -110,26 +136,28 @@ class BuildObjectsVisitor(CVLangVisitor):
 
     # ---------- DATOS PERSONALES ----------
     def visitDatospersonales(self, ctx: CVLangParser.DatospersonalesContext):
-        nombre = _v(ctx.nomyape().value())
+        nombre = _ctx_value(ctx.nomyape())
         datos = DatosPersonales(nombre=nombre)
 
+        if ctx.foto():
+            datos.foto = _ctx_value(ctx.foto())
         if ctx.fecha():
-            datos.fecha_nacimiento = _v(ctx.fecha().value())
+            datos.fecha_nacimiento = _ctx_value(ctx.fecha())
         if ctx.bio():
-            datos.bio = _v(ctx.bio().value())
+            datos.bio = _ctx_value(ctx.bio())
 
         c = ctx.contacto()
-        datos.email = _v(c.email().value())
-        datos.telefono = c.telefono().getText().strip("()").strip()
+        datos.email = _ctx_value(c.email())
+        datos.telefono = _ctx_value(c.telefono())
 
         if c.redes():
             redes = c.redes()
             if redes.linkedin():
-                datos.linkedin = _v(redes.linkedin().value())
+                datos.linkedin = _ctx_value(redes.linkedin())
             if redes.github():
-                datos.github = _v(redes.github().value())
+                datos.github = _ctx_value(redes.github())
             if redes.web():
-                datos.web = _v(redes.web().value())
+                datos.web = _ctx_value(redes.web())
 
         self._datos = datos
         return None
@@ -139,11 +167,11 @@ class BuildObjectsVisitor(CVLangVisitor):
         items: List[FormacionItem] = []
 
         for o in ctx.oficial():
-            titulo = _v(o.titulo().value())
-            inst = _v(o.expedidor().value())
-            logros = _v(o.logros().value()) if o.logros() else None
-            desc = _v(o.descripcion().value()) if o.descripcion() else None
-            fecha = _v(o.fecha().value())
+            titulo = _ctx_value(o.titulo())
+            inst = _ctx_value(o.expedidor())
+            desc = _ctx_value(o.descripcion()) if o.descripcion() else None
+            logros = _ctx_value(o.logros()) if o.logros() else None
+            fecha = _ctx_value(o.fecha())
 
             items.append(
                 FormacionItem(
@@ -157,6 +185,25 @@ class BuildObjectsVisitor(CVLangVisitor):
                 )
             )
 
+        # Si tienes complementaria en tu gramática, descomenta y adapta:
+        if hasattr(ctx, "complementaria"):
+            for c in ctx.complementaria() or []:
+                titulo = _ctx_value(c.titulo())
+                inst = _ctx_value(c.expedidor()) if hasattr(c, "expedidor") and c.expedidor() else "—"
+                fecha = _ctx_value(c.fecha()) if hasattr(c, "fecha") and c.fecha() else None
+                en_curso = (fecha or "").strip().lower() in {"en_curso", "encurso", "en curso"}
+                items.append(
+                    FormacionItem(
+                        titulo=titulo,
+                        institucion=inst,
+                        tipo="complementaria",
+                        descripcion=None,
+                        logros=None,
+                        fecha=fecha,
+                        en_curso=en_curso,
+                    )
+                )
+
         self._form = Formacion(items=items)
         return None
 
@@ -164,10 +211,17 @@ class BuildObjectsVisitor(CVLangVisitor):
     def visitIdiomas(self, ctx: CVLangParser.IdiomasContext):
         lst: List[Idioma] = []
         for it in ctx.idioma():
-            nombre = _v(it.value())
-            niv = _v(it.nivel().value())
-            exp = _v(it.expedidor().value()) if it.expedidor() else None
-            lst.append(Idioma(nombre=nombre, nivel=niv, expedidor=exp))
+            # En muchas gramáticas: idioma( Inglés nivel(B2) expedidor(...) )
+            # Como no usamos value(), cogemos texto y buscamos sub-nodos:
+            nombre = ""
+            if hasattr(it, "CONJPALYNUM") and it.CONJPALYNUM():
+                nombre = it.CONJPALYNUM().getText()
+            else:
+                nombre = _ctx_text(it).strip("()").strip()
+
+            niv = _ctx_value(it.nivel()) if hasattr(it, "nivel") and it.nivel() else ""
+            exp = _ctx_value(it.expedidor()) if hasattr(it, "expedidor") and it.expedidor() else None
+            lst.append(Idioma(nombre=_unquote(nombre), nivel=niv, expedidor=exp))
 
         self._idiomas = Idiomas(idiomas=lst)
         return None
@@ -176,7 +230,7 @@ class BuildObjectsVisitor(CVLangVisitor):
     def visitExperiencia(self, ctx: CVLangParser.ExperienciaContext):
         items: List[ExperienciaItem] = []
 
-        for l in ctx.laboral():
+        for l in ctx.laboral() or []:
             f = self._read_xp_block(l)
             items.append(
                 ExperienciaItem(
@@ -184,11 +238,11 @@ class BuildObjectsVisitor(CVLangVisitor):
                     organizacion=f.get("organizacion", "—"),
                     puesto=f.get("puesto", "—"),
                     descripcion=f.get("descripcion"),
-                    horas=int(f["horas"]) if "horas" in f else None,
+                    horas=int(f["horas"]) if "horas" in f and f["horas"] is not None else None,
                 )
             )
 
-        for v in ctx.voluntariado():
+        for v in ctx.voluntariado() or []:
             f = self._read_xp_block(v)
             items.append(
                 ExperienciaItem(
@@ -196,7 +250,7 @@ class BuildObjectsVisitor(CVLangVisitor):
                     organizacion=f.get("organizacion", "—"),
                     puesto=f.get("puesto", "—"),
                     descripcion=f.get("descripcion"),
-                    horas=int(f["horas"]) if "horas" in f else None,
+                    horas=int(f["horas"]) if "horas" in f and f["horas"] is not None else None,
                 )
             )
 
@@ -206,17 +260,24 @@ class BuildObjectsVisitor(CVLangVisitor):
     def _read_xp_block(self, ctx) -> Dict[str, Any]:
         out: Dict[str, Any] = {}
 
-        if ctx.organizacion():
-            out["organizacion"] = _v(ctx.organizacion().value())
-        if ctx.puesto():
-            out["puesto"] = _v(ctx.puesto().value())
-        if ctx.horas():
-            out["horas"] = ctx.horas().NUMBER().getText()
+        if hasattr(ctx, "organizacion") and ctx.organizacion():
+            out["organizacion"] = _ctx_value(ctx.organizacion())
+        if hasattr(ctx, "puesto") and ctx.puesto():
+            out["puesto"] = _ctx_value(ctx.puesto())
+        if hasattr(ctx, "horas") and ctx.horas():
+            # horas(NUM) normalmente
+            try:
+                out["horas"] = _ctx_value(ctx.horas())
+            except Exception:
+                out["horas"] = None
 
+        # laboral: responsabilidades(...)
         if hasattr(ctx, "responsabilidades") and ctx.responsabilidades():
-            out["descripcion"] = _v(ctx.responsabilidades().value())
+            out["descripcion"] = _ctx_value(ctx.responsabilidades())
+
+        # voluntariado: descripcion(...)
         if hasattr(ctx, "descripcion") and ctx.descripcion():
-            out["descripcion"] = _v(ctx.descripcion().value())
+            out["descripcion"] = _ctx_value(ctx.descripcion())
 
         return out
 
@@ -227,26 +288,58 @@ class BuildObjectsVisitor(CVLangVisitor):
         if ctx.soft():
             for s in ctx.soft():
                 for h in s.habilidad():
-                    hs.append(Habilidad(nombre=_v(h.value()), tipo="soft"))
+                    hs.append(Habilidad(nombre=_ctx_value(h), tipo="soft"))
 
-        # Si tu hard cambió a categoria{...}, aquí tendrás que mapearlo,
-        # pero no toca el error actual (cvId). Lo dejamos como lo tengas.
+        # Tu hard ha cambiado a categoria{...} en tu ejemplo.
+        # Si tu gramática tiene categoria(), lo soportamos:
+        if hasattr(ctx, "hard") and ctx.hard():
+            for hd in ctx.hard():
+                if hasattr(hd, "categoria") and hd.categoria():
+                    for cat in hd.categoria():
+                        # cat.getText() contiene todo el bloque; sacamos "nombre(...)", "habilidad(...)", "nvhab(...)"
+                        txt = _ctx_text(cat)
+                        # extrae simple por substrings (robusto para tu DSL)
+                        cat_nombre = self._extract_field(txt, "nombre")
+                        hab_nombre = self._extract_field(txt, "habilidad")
+                        nivel = self._extract_field(txt, "nvhab")
+                        if hab_nombre:
+                            hs.append(Habilidad(nombre=hab_nombre, tipo="hard", categoria=cat_nombre, nivel=nivel))
 
         self._skills = Habilidades(habilidades=hs)
         return None
+
+    def _extract_field(self, block_text: str, field: str) -> str:
+        """
+        Extrae field(...) de un texto como:
+          categoria{nombre(Venta)habilidad(Vender coches)nvhab(alto)}
+        """
+        key = field + "("
+        i = block_text.find(key)
+        if i == -1:
+            return ""
+        j = block_text.find(")", i)
+        if j == -1:
+            return ""
+        return _unquote(block_text[i + len(key) : j].strip())
 
     # ---------- PORTAFOLIO ----------
     def visitPortafolio(self, ctx: CVLangParser.PortafolioContext):
         proyectos: List[Proyecto] = []
         meritos: List[Merito] = []
 
-        for p in ctx.proyecto():
-            # Ajusta si tu gramática usa value() o campos directos
-            # Aquí lo dejamos genérico y conservador:
-            nombre = _v(p.nombre().value()) if hasattr(p, "nombre") else ""
-            desc = _v(p.descripcion().value()) if hasattr(p, "descripcion") else ""
-            tec = _split_tecnologias(_v(p.tecnologias().value())) if hasattr(p, "tecnologias") else []
-            proyectos.append(Proyecto(nombre=nombre, descripcion=desc, categoria=None, tecnologias=tec))
+        if hasattr(ctx, "proyecto") and ctx.proyecto():
+            for p in ctx.proyecto():
+                nombre = _ctx_value(p.nombre()) if hasattr(p, "nombre") and p.nombre() else ""
+                desc = _ctx_value(p.descripcion()) if hasattr(p, "descripcion") and p.descripcion() else ""
+                tec = _split_tecnologias(_ctx_value(p.tecnologias())) if hasattr(p, "tecnologias") and p.tecnologias() else []
+                proyectos.append(Proyecto(nombre=nombre, descripcion=desc, categoria=None, tecnologias=tec))
+
+        # Si en tu gramática existen meritos(), también podrías leerlos:
+        if hasattr(ctx, "meritos") and ctx.meritos():
+            for m in ctx.meritos():
+                n = _ctx_value(m.nombre()) if hasattr(m, "nombre") and m.nombre() else ""
+                d = _ctx_value(m.descripcion()) if hasattr(m, "descripcion") and m.descripcion() else ""
+                meritos.append(Merito(nombre=n, descripcion=d))
 
         self._folio = Portafolio(proyectos=proyectos, meritos=meritos)
         return None
