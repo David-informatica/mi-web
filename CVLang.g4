@@ -66,16 +66,12 @@ PYC             : ';' ;
 CO              : ',' ;
 
 // ======== Comentarios estilo C ========
-ERR_COMMENT_CLOSE
-    : '*/' { System.err.println("Error léxico: cierre de comentario sin apertura"); skip(); }
-    ;
-
 COMMENT
-    : '/*' .*? '*/' -> skip
+    : '/*' ( ~'*' | '*' ~'/' )* '*/' -> skip
     ;
 
 UNCLOSED_COMMENT
-    : '/*' .*? EOF
+    : '/*' ( ~'*' | '*' ~'/' )* EOF
       { raise Exception("Error lexico: comentario no cerrado antes del fin de archivo."); }
     ;
 
@@ -83,7 +79,6 @@ UNOPENED_COMMENT
     : '*/'
       { raise Exception("Error lexico: comentario no abierto."); }
     ;
-
 
 // ======== Macros ========
 
