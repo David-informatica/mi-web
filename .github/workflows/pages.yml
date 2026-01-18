@@ -59,18 +59,25 @@ jobs:
         run: |
           curl -L -o antlr.jar https://www.antlr.org/download/antlr-4.13.2-complete.jar
       
+          rm -rf src/antlr_gen
           mkdir -p src/antlr_gen
-          rm -rf src/antlr_gen/*
       
           java -jar antlr.jar -Dlanguage=Python3 -visitor -o src/antlr_gen gramatica/antlr/CVLang.g4
       
           echo "== Generated tree =="
-          find src/antlr_gen -maxdepth 4 -type f -name "CVLangLexer.py" -o -name "CVLangParser.py" -o -name "*.py" | sed -n '1,120p'
+          find src/antlr_gen -maxdepth 6 -type f -name "CVLangLexer.py" -o -name "CVLangParser.py" -o -name "CVLangVisitor.py" | sed -n '1,200p'
       
-          # Si el paquete es gramatica, los ficheros estaran en src/antlr_gen/gramatica/
-          # Ponemos AMBAS rutas en PYTHONPATH para cubrir los dos casos.
-          PYTHONPATH="$(pwd)/src:$(pwd)/src/antlr_gen:$(pwd)/src/antlr_gen/gramatica" \
+          ANTLR_PY_DIR="$(dirname "$(find src/antlr_gen -name CVLangLexer.py | head -n 1)")"
+          if [ -z "$ANTLR_PY_DIR" ]; then
+            echo "[ERROR] CVLangLexer.py no generado"
+            exit 1
+          fi
+          echo "ANTLR_PY_DIR=$ANTLR_PY_DIR"
+      
+          PYTHONPATH="$(pwd)/src:$(pwd)/$ANTLR_PY_DIR" \
             python src/main.py --input "$INPUT_PATH" --template "$TEMPLATE_PATH" --out index.html
+      
+          test -f index.html
         
 
       - name: Build with Flex/CUP
