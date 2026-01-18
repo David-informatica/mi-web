@@ -50,20 +50,20 @@ jobs:
       
           rm -f *.class parser.java sym.java Yylex.java 2>/dev/null || true
       
-          # 1) JFlex necesita java-cup.jar en classpath por el %cup (Scanner)
+          # 1) JFlex (necesita CUP runtime por %cup)
           java -cp ../../tools/jflex.jar:../../tools/java-cup.jar jflex.Main CV_Ascendente.flex
       
-          # 2) CUP genera parser.java + sym.java
-          java -jar ../../tools/java-cup.jar -parser parser -symbols sym CV_Ascendente.cup
+          # 2) CUP (invocado por clase main)
+          java -cp ../../tools/java-cup.jar java_cup.Main -parser parser -symbols sym CV_Ascendente.cup
       
-          # 3) Compilar (OJO: el parser usa java_cup.runtime.*, hay que meter CUP jar en classpath)
+          # 3) Compilar (parser/Yylex dependen del runtime de CUP)
           javac -encoding UTF-8 -cp .:../../tools/java-cup.jar *.java
         
-
+        
       - name: Run parser -> cv.json
         run: |
           java -cp gramatica/flexcup:tools/java-cup.jar parser entrada.txt > cv.json
-          test -s cv.json
+          test -s cv.json        
         
 
       - name: Render index.html with Jinja
