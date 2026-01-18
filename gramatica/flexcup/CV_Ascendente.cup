@@ -366,6 +366,8 @@ non terminal web_opt;
 non terminal merito_list_opt, merito_list, merito;
 non terminal nombre;
 
+non terminal idiomas_opt, experiencia_opt, habilidades_opt, portafolio_opt;
+non terminal expedidor_opt;
 
 /* =========================
    START
@@ -408,7 +410,6 @@ variable ::= IDENT IG CONJPALYNUM PYC;
 cv ::= CV IDENT LL_A local_var_opt datospersonales formacion idiomas_opt experiencia_opt habilidades_opt portafolio_opt LL_C
      ;
 
-non terminal idiomas_opt, experiencia_opt, habilidades_opt, portafolio_opt;
 
 idiomas_opt ::= idiomas
              | /* empty */
@@ -677,7 +678,6 @@ idioma ::= IDIOMA LL_A
           :}
         ;
 
-non terminal expedidor_opt;
 
 expedidor_opt ::= expedidor
                 | /* empty */
