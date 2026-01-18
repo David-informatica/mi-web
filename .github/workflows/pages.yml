@@ -2,7 +2,7 @@ name: Build and Deploy CV (JFlex + CUP + Jinja)
 
 on:
   push:
-    branches: ["main"]
+    branches: ["solo_cup"]
   workflow_dispatch:
 
 permissions:
