@@ -1,4 +1,4 @@
-/* ======== Analizador léxico JFlex corregido ======== */
+/* ======== Analizador léxico JFlex (con valores para CUP) ======== */
 
 import java_cup.runtime.Symbol;
 
@@ -12,20 +12,20 @@ import java_cup.runtime.Symbol;
 %state COMMENT
 
 
-/* ======== Macros ======== */
+/* ======== Macros (expresiones regulares) ======== */
 
-
-<YYINITIAL>{IDENT}       { return new Symbol(sym.IDENT, yytext()); }
-<YYINITIAL>{NVH}         { return new Symbol(sym.NVH, yytext()); }
-<YYINITIAL>{NVI}         { return new Symbol(sym.NVI, yytext()); }
-<YYINITIAL>{BOOL}        { return new Symbol(sym.BOOL, yytext()); }
-<YYINITIAL>{FECHA_NUM}   { return new Symbol(sym.FECHA_NUM, yytext()); }
-<YYINITIAL>{RUTA}        { return new Symbol(sym.RUTA, yytext()); }
-<YYINITIAL>{MAIL}        { return new Symbol(sym.MAIL, yytext()); }
-<YYINITIAL>{TFNO}        { return new Symbol(sym.TFNO, yytext()); }
-<YYINITIAL>{NUM}         { return new Symbol(sym.NUM, yytext()); }
-<YYINITIAL>{CONJPALYNUM} { return new Symbol(sym.CONJPALYNUM, yytext()); }
-
+WS                = [ \t\r\n]+
+NUM               = (0|[1-9][0-9]*)
+PAL               = [A-Za-zÁÉÍÓÚáéíóúÑñ]+
+TFNO              = [5-9][0-9]{8}
+MAIL              = [A-Za-z0-9]+ ("." [A-Za-z0-9]+)* "@" [A-Za-z0-9]+ ("." [A-Za-z0-9]+)*
+RUTA              = [A-Za-z]+([./\\-:]+[A-Za-z]+)+
+FECHA_NUM         = (0[1-9]|[12][0-9]|30|31)"/"(0[1-9]|1[0-2])"/"([12][0-9]{3})
+BOOL              = "Si"|"No"
+NVI               = ([ABC][12])|"nativo"
+NVH               = "bajo"|"medio"|"alto"
+IDENT             = \" {CONJPALYNUM} \"
+CONJPALYNUM       = ({PAL}|{NUM})([ ,]?({PAL}|{NUM})\.?)*
 
 %%
 
@@ -35,7 +35,7 @@ import java_cup.runtime.Symbol;
 
 /* ======== Comentarios estilo C ======== */
 <COMMENT> "*/"                   { yybegin(YYINITIAL); }
-<COMMENT> <<EOF>>                { System.err.println("Error léxico en la línea " + (yyline+1) + ", columna " + (yycolumn+1) + ": Fin de archivo dentro de comentario."); System.exit(1); }
+<COMMENT> <<EOF>>                { System.err.println("Error lexico en linea " + (yyline+1) + ", columna " + (yycolumn+1) + ": EOF dentro de comentario."); System.exit(1); }
 <COMMENT> .                      {} /* ignorar contenido del comentario */
 
 /* ======== Palabras clave ======== */
@@ -92,7 +92,7 @@ import java_cup.runtime.Symbol;
 <YYINITIAL>"tecnologias"         { return new Symbol(sym.TECNOLOGIAS); }
 <YYINITIAL>"meritos"             { return new Symbol(sym.MERITOS); }
 
-/* ======== Símbolos y operadores ======== */
+/* ======== Simbolos y operadores ======== */
 <YYINITIAL>"/*"                  { yybegin(COMMENT); }
 
 <YYINITIAL>"{" { return new Symbol(sym.LL_A); }
@@ -103,20 +103,20 @@ import java_cup.runtime.Symbol;
 <YYINITIAL>";" { return new Symbol(sym.PYC); }
 <YYINITIAL>"," { return new Symbol(sym.CO); }
 
-/* ======== Macros ======== */
-<YYINITIAL>{IDENT}       { return new Symbol(sym.IDENT); }
-<YYINITIAL>{NVH}         { return new Symbol(sym.NVH); }
-<YYINITIAL>{NVI}         { return new Symbol(sym.NVI); }
-<YYINITIAL>{BOOL}        { return new Symbol(sym.BOOL); }
-<YYINITIAL>{FECHA_NUM}   { return new Symbol(sym.FECHA_NUM); }
-<YYINITIAL>{RUTA}        { return new Symbol(sym.RUTA); }
-<YYINITIAL>{MAIL}        { return new Symbol(sym.MAIL); }
-<YYINITIAL>{TFNO}        { return new Symbol(sym.TFNO); }
-<YYINITIAL>{NUM}         { return new Symbol(sym.NUM); }
-<YYINITIAL>{CONJPALYNUM} { return new Symbol(sym.CONJPALYNUM); }
+/* ======== Macros (TOKENS CON VALOR) ======== */
+<YYINITIAL>{IDENT}       { return new Symbol(sym.IDENT, yytext()); }
+<YYINITIAL>{NVH}         { return new Symbol(sym.NVH, yytext()); }
+<YYINITIAL>{NVI}         { return new Symbol(sym.NVI, yytext()); }
+<YYINITIAL>{BOOL}        { return new Symbol(sym.BOOL, yytext()); }
+<YYINITIAL>{FECHA_NUM}   { return new Symbol(sym.FECHA_NUM, yytext()); }
+<YYINITIAL>{RUTA}        { return new Symbol(sym.RUTA, yytext()); }
+<YYINITIAL>{MAIL}        { return new Symbol(sym.MAIL, yytext()); }
+<YYINITIAL>{TFNO}        { return new Symbol(sym.TFNO, yytext()); }
+<YYINITIAL>{NUM}         { return new Symbol(sym.NUM, yytext()); }
+<YYINITIAL>{CONJPALYNUM} { return new Symbol(sym.CONJPALYNUM, yytext()); }
 
 /* ======== Espacios en blanco ======== */
 {WS}                {} /* ignorar */
 
-/* ======== Error léxico ======== */
-<YYINITIAL>.                    {System.err.println("Error léxico en la línea " + (yyline) + ", columna " + (yycolumn) + ": carácter inesperado '" + yytext() + "'"); System.exit(1); }
+/* ======== Error lexico ======== */
+<YYINITIAL>. { System.err.println("Error lexico en linea " + (yyline+1) + ", columna " + (yycolumn+1) + ": caracter inesperado '" + yytext() + "'"); System.exit(1); }

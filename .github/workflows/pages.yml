@@ -21,13 +21,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Java
+      - name: Setup Java (for JFlex/CUP)
         uses: actions/setup-java@v4
         with:
           distribution: "temurin"
           java-version: "17"
 
-      - name: Setup Python
+      - name: Setup Python (for Jinja render)
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -46,26 +46,25 @@ jobs:
 
       - name: Generate + Compile (JFlex + CUP)
         run: |
+          # Ruta de la gramatica:
           cd gramatica/flexcup
 
+          # Limpia generados previos
           rm -f *.class parser.java sym.java Yylex.java 2>/dev/null || true
 
+          # 1) Lexer (Yylex.java)
           java -jar ../../tools/jflex.jar CV_Ascendente.flex
+
+          # 2) Parser (parser.java + sym.java)
           java -jar ../../tools/java-cup.jar -parser parser -symbols sym CV_Ascendente.cup
 
+          # 3) Compilar
           javac -encoding UTF-8 *.java
 
       - name: Run parser -> cv.json
         run: |
-          # La idea: el parser escribe JSON a stdout o a fichero
-          # (elige UNA de estas dos líneas según lo que implementes)
-
-          # 1) Si imprime JSON por stdout:
-          java -cp gramatica/flexcup parser test/entrada.txt > cv.json
-
-          # 2) Si acepta argumento de salida:
-          # java -cp gramatica/flexcup parser test/entrada.txt cv.json
-
+          # Ajusta el path del input (entrada.txt) si esta en otro sitio:
+          java -cp gramatica/flexcup parser entrada.txt > cv.json
           test -s cv.json
 
       - name: Render index.html with Jinja
@@ -87,6 +86,7 @@ jobs:
               env = Environment(loader=FileSystemLoader(template_dir))
               template = env.get_template(template_name)
 
+              # La plantilla usa: datos, formacion, idiomas, experiencia, habilidades, portafolio
               html = template.render(**data)
 
               with open(out_html, "w", encoding="utf-8") as f:
@@ -96,21 +96,22 @@ jobs:
               main()
           PY
 
-          # Ajusta template_dir según tu repo: "templates/" o raíz.
-          python render.py cv.json templates/ plantilla_cv.html index.html
+          # Ajusta template_dir y nombre si tu carpeta no es templates/:
+          python render.py cv.json templates plantilla_cv.html index.html
           test -f index.html
 
       - name: Prepare Pages artifact
         run: |
           mkdir -p site
           cp index.html site/index.html
-          # si tienes styles.css:
-          [ -f styles.css ] && cp styles.css site/styles.css || true
-          # plantilla no hace falta en Pages, solo el resultado
-          # assets/img si aplica:
-          [ -d imagenes ] && cp -r imagenes site/imagenes || true
-          [ -d assets ] && cp -r assets site/assets || true
-          [ -d img ] && cp -r img site/img || true
+
+          # Si tienes CSS en raiz:
+          if [ -f "styles.css" ]; then cp styles.css site/styles.css; fi
+
+          # Si tienes assets/imagenes/img, copiarlos:
+          if [ -d "imagenes" ]; then cp -r imagenes site/imagenes; fi
+          if [ -d "assets" ]; then cp -r assets site/assets; fi
+          if [ -d "img" ]; then cp -r img site/img; fi
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
