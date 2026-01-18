@@ -58,16 +58,24 @@ jobs:
         if: env.ENGINE == 'ANTLR'
         run: |
           curl -L -o antlr.jar https://www.antlr.org/download/antlr-4.13.2-complete.jar
+      
           mkdir -p src/antlr_gen
-          rm -f src/antlr_gen/CVLangLexer.py src/antlr_gen/CVLangParser.py src/antlr_gen/CVLangVisitor.py src/antlr_gen/CVLangListener.py src/antlr_gen/CVLang.tokens src/antlr_gen/CVLang.interp || true
-
+          rm -f src/antlr_gen/* || true
+      
+          # Generar parser/lexer en Python
           java -jar antlr.jar -Dlanguage=Python3 -visitor -o src/antlr_gen gramatica/antlr/CVLang.g4
-
-          # Ejecuta tu pipeline Python (ideal: main.py con args)
-          PYTHONPATH=src:src/antlr_gen \
+      
+          echo "== Generated files =="
+          ls -la src/antlr_gen
+      
+          # Asegurar que existen (si no, abortar con mensaje útil)
+          test -f src/antlr_gen/CVLangLexer.py
+          test -f src/antlr_gen/CVLangParser.py
+      
+          # Ejecutar con PYTHONPATH correcto
+          PYTHONPATH="$(pwd)/src:$(pwd)/src/antlr_gen" \
             python src/main.py --input "$INPUT_PATH" --template "$TEMPLATE_PATH" --out index.html
-
-          test -f index.html
+        
 
       - name: Build with Flex/CUP
         if: env.ENGINE == 'CUP'
