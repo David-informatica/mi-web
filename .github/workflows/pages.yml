@@ -1,4 +1,4 @@
-name: Build and Deploy CV to GitHub Pages
+name: Build and Deploy CV (JFlex + CUP + Jinja)
 
 on:
   push:
@@ -21,52 +21,96 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: "pip"
 
-      - name: Install dependencies
+      - name: Install Python deps
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install Jinja2
 
-      - name: Setup Java (for ANTLR)
-        uses: actions/setup-java@v4
-        with:
-          distribution: "temurin"
-          java-version: "17"
-
-      - name: Generate ANTLR Python sources
+      - name: Download JFlex + CUP
         run: |
-          curl -L -o antlr.jar https://www.antlr.org/download/antlr-4.13.2-complete.jar
-          # Limpia generados previos por si acaso
-          rm -f CVLangLexer.py CVLangParser.py CVLangVisitor.py CVLangListener.py CVLang.tokens CVLang.interp
-          java -jar antlr.jar -Dlanguage=Python3 -visitor CVLang.g4
+          mkdir -p tools
+          curl -L -o tools/jflex.jar https://repo1.maven.org/maven2/de/jflex/jflex/1.9.1/jflex-1.9.1.jar
+          curl -L -o tools/java-cup.jar https://repo1.maven.org/maven2/com/github/vbmacher/java-cup/11b/java-cup-11b.jar
 
-      - name: Sanity checks
+      - name: Generate + Compile (JFlex + CUP)
         run: |
-          test -f templates/plantilla_cv.html
-          test -f styles.css
-          test -f entrada.txt
-          test -f main.py
+          cd gramatica/flexcup
 
-      - name: Generate site (index.html)
+          rm -f *.class parser.java sym.java Yylex.java 2>/dev/null || true
+
+          java -jar ../../tools/jflex.jar CV_Ascendente.flex
+          java -jar ../../tools/java-cup.jar -parser parser -symbols sym CV_Ascendente.cup
+
+          javac -encoding UTF-8 *.java
+
+      - name: Run parser -> cv.json
         run: |
-          python main.py
+          # La idea: el parser escribe JSON a stdout o a fichero
+          # (elige UNA de estas dos líneas según lo que implementes)
+
+          # 1) Si imprime JSON por stdout:
+          java -cp gramatica/flexcup parser test/entrada.txt > cv.json
+
+          # 2) Si acepta argumento de salida:
+          # java -cp gramatica/flexcup parser test/entrada.txt cv.json
+
+          test -s cv.json
+
+      - name: Render index.html with Jinja
+        run: |
+          cat > render.py << 'PY'
+          import json
+          import sys
+          from jinja2 import Environment, FileSystemLoader
+
+          def main():
+              cv_json = sys.argv[1]
+              template_dir = sys.argv[2]
+              template_name = sys.argv[3]
+              out_html = sys.argv[4]
+
+              with open(cv_json, "r", encoding="utf-8") as f:
+                  data = json.load(f)
+
+              env = Environment(loader=FileSystemLoader(template_dir))
+              template = env.get_template(template_name)
+
+              html = template.render(**data)
+
+              with open(out_html, "w", encoding="utf-8") as f:
+                  f.write(html)
+
+          if __name__ == "__main__":
+              main()
+          PY
+
+          # Ajusta template_dir según tu repo: "templates/" o raíz.
+          python render.py cv.json templates/ plantilla_cv.html index.html
           test -f index.html
 
       - name: Prepare Pages artifact
         run: |
           mkdir -p site
           cp index.html site/index.html
-          cp styles.css site/styles.css
-
-          # Si tienes carpeta de imágenes (como en tu DSL: imagenes/foto_perfil.jpg)
-          if [ -d "imagenes" ]; then cp -r imagenes site/imagenes; fi
-          if [ -d "assets" ]; then cp -r assets site/assets; fi
-          if [ -d "img" ]; then cp -r img site/img; fi
+          # si tienes styles.css:
+          [ -f styles.css ] && cp styles.css site/styles.css || true
+          # plantilla no hace falta en Pages, solo el resultado
+          # assets/img si aplica:
+          [ -d imagenes ] && cp -r imagenes site/imagenes || true
+          [ -d assets ] && cp -r assets site/assets || true
+          [ -d img ] && cp -r img site/img || true
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
