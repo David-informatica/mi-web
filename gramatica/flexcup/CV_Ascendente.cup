@@ -1,8 +1,9 @@
-/* COMANDOS (ejemplo):
-   jflex CV_Ascendente.flex
-   java -jar java-cup.jar -parser parser -symbols sym CV_Ascendente.cup
-   javac *.java
-   java parser entrada.txt > cv.json
+/*  CV_Ascendente.cup  (LIMPIO + Estrategia A)
+    - Sin tocar workflow
+    - Sin "mil alternativas"
+    - Opcionales con _opt
+    - official/complementaria limpias (desc/logros/certificado/horas opcionales)
+    - El parser imprime JSON a stdout (para > cv.json)
 */
 
 import java_cup.runtime.*;
@@ -14,18 +15,12 @@ parser code {:
        Estado: root + contexto + temporales
        ========================= */
 
-    // Root con estructura EXACTA para plantilla_cv.html
     public static Map<String,Object> root;
-
-    // Stack de contexto para reutilizar reglas hoja (web/descripcion/nombre, etc.)
     public static Deque<String> ctx = new ArrayDeque<>();
-
-    // ---------- temporales DATOS ----------
-    // (no hace falta mucho, se escribe directo a root)
 
     // ---------- temporales FORMACION ----------
     static String tmpFormTitulo, tmpFormExpedidor, tmpFormDesc, tmpFormLogros, tmpFormFecha;
-    static boolean tmpFormEnCurso;
+    static boolean tmpFormEnCurso; // (si quieres usarlo, por ejemplo con certificado)
 
     // ---------- temporales IDIOMAS ----------
     static String tmpIdiomaNombre, tmpIdiomaNivel, tmpIdiomaExpedidor;
@@ -35,7 +30,7 @@ parser code {:
     static Integer tmpXPHoras;
     static String tmpXPTipo; // "laboral" / "voluntariado"
 
-    // ---------- temporales HABILIDADES ----------
+    // ---------- temporales HABILIDADES HARD ----------
     static String tmpHardCategoria, tmpHardHabilidad, tmpHardNivel;
 
     // ---------- temporales PROYECTO ----------
@@ -47,7 +42,11 @@ parser code {:
     // ---------- temporales MERITO ----------
     static String tmpMeritoNombre, tmpMeritoDesc;
 
-    // ---------- init root ----------
+
+    /* =========================
+       Root + helpers
+       ========================= */
+
     @SuppressWarnings("unchecked")
     public static void initRoot() {
         root = new LinkedHashMap<>();
@@ -73,11 +72,9 @@ parser code {:
         )));
     }
 
-    // ---------- helpers ----------
     public static void pushCtx(String c) { ctx.push(c); }
     public static void popCtx() { if (!ctx.isEmpty()) ctx.pop(); }
     public static boolean inCtx(String c) { return ctx.contains(c); }
-    public static String topCtx() { return ctx.isEmpty() ? "" : ctx.peek(); }
 
     public static String unquote(String s) {
         if (s == null) return "";
@@ -89,7 +86,6 @@ parser code {:
     }
 
     public static String stripParensLike(String s) {
-        // Por si en algún sitio llega "(...)" ya pegado, lo dejamos sin paréntesis.
         if (s == null) return "";
         s = s.trim();
         if (s.startsWith("(") && s.endsWith(")") && s.length() >= 2) {
@@ -138,9 +134,7 @@ parser code {:
             for (var e : ((Map<String,Object>)o).entrySet()) {
                 if (!first) sb.append(",");
                 first = false;
-                sb.append(toJson(e.getKey()));
-                sb.append(":");
-                sb.append(toJson(e.getValue()));
+                sb.append(toJson(e.getKey())).append(":").append(toJson(e.getValue()));
             }
             sb.append("}");
             return sb.toString();
@@ -160,7 +154,7 @@ parser code {:
         return "\"" + jsonEscape(o.toString()) + "\"";
     }
 
-    // ---------- accessors ----------
+    // accessors
     @SuppressWarnings("unchecked")
     public static Map<String,Object> datos() { return (Map<String,Object>)root.get("datos"); }
 
@@ -194,7 +188,7 @@ parser code {:
         return (List<Map<String,Object>>)((Map<String,Object>)root.get("portafolio")).get("meritos");
     }
 
-    // ---------- reset temporales ----------
+    // resets
     static void resetFormacionTemps() {
         tmpFormTitulo = tmpFormExpedidor = tmpFormDesc = tmpFormLogros = tmpFormFecha = null;
         tmpFormEnCurso = false;
@@ -221,7 +215,7 @@ parser code {:
         tmpMeritoNombre = tmpMeritoDesc = null;
     }
 
-    // ---------- commits ----------
+    // commits
     static void commitFormacionItem(String tipo) {
         Map<String,Object> it = new LinkedHashMap<>();
         it.put("titulo", tmpFormTitulo == null ? "" : tmpFormTitulo);
@@ -230,7 +224,7 @@ parser code {:
         it.put("descripcion", tmpFormDesc);
         it.put("logros", tmpFormLogros);
         it.put("en_curso", Boolean.valueOf(tmpFormEnCurso));
-        // Nota: la plantilla no usa "tipo", pero no molesta si lo incluyes:
+        // si quieres, puedes guardar tipo:
         // it.put("tipo", tipo);
         formacionList().add(it);
     }
@@ -304,12 +298,15 @@ parser code {:
             System.exit(1);
         }
 
-        // Imprime JSON para redirigir a cv.json en GitHub Actions
         System.out.print(toJson(root));
     }
 :}
 
-/********* TERMINALES (sin valor) *********/
+
+/* =========================
+   TERMINALES
+   ========================= */
+
 terminal CV, GVAR, LVAR;
 
 terminal DP, NOMYAPE, FOTO, FECHA, BIO, CONTACTO, EMAIL, TELEFONO, REDES, LINKEDIN, GITHUB, WEB;
@@ -326,37 +323,77 @@ terminal PORTAFOLIO, PROYECTO, NOMBRE, GRUPO, COMPANERO, TECNOLOGIAS, MERITOS;
 
 terminal LL_A, LL_C, PA_A, PA_C, IG, PYC, CO;
 
-/********* TERMINALES (con valor) *********/
+/* Tokens con valor */
 terminal String IDENT, CONJPALYNUM, RUTA, MAIL, TFNO, NUM, FECHA_NUM, BOOL, NVI, NVH;
 
-/********* NO TERMINALES *********/
+
+/* =========================
+   NO TERMINALES
+   ========================= */
+
 non terminal cvs, cv_list, cv;
-non terminal global_var, local_var, variable, variable_list;
 
-non terminal datospersonales, nomyape, foto, fecha, bio, contacto, email, telefono, redes, linkedin, github, web;
+non terminal global_var_opt, global_var, local_var_opt, local_var, variable_list, variable;
 
-non terminal formacion, oficial_list, oficial, titulo, expedidor, descripcion, logros, complementaria_list, complementaria, certificado, horas;
+non terminal datospersonales, nomyape, foto, fecha, bio, contacto, email, telefono;
+non terminal foto_opt, fecha_opt, bio_opt;
+non terminal redes, linkedin, github, web;
+non terminal linkedin_opt, github_opt;
+
+non terminal formacion, oficial_list, oficial;
+non terminal titulo, expedidor, descripcion, logros;
+non terminal descripcion_opt, logros_opt;
+non terminal complementaria_list_opt, complementaria_list, complementaria;
+non terminal certificado_opt, certificado;
+non terminal horas_opt, horas;
 
 non terminal idiomas, idioma_list, idioma, nvi;
 
-non terminal experiencia, laboral_list, laboral, voluntariado_list, voluntariado, puesto, responsabilidades, organizacion;
+non terminal experiencia, laboral_list, laboral;
+non terminal voluntariado_list_opt, voluntariado_list, voluntariado;
+non terminal puesto, responsabilidades, organizacion;
 
-non terminal habilidades, soft, hard, habilidad, habilidad_list, habilidad_nvh_list, categoria, categoria_list, nvh;
+non terminal habilidades, soft, hard_opt, hard;
+non terminal habilidad_list, habilidad;
+non terminal categoria_list, categoria;
+non terminal habilidad_nvh_list, nvh;
 
-non terminal portafolio, proyecto_list, proyecto, grupo, companero_list, companero, tecnologias, merito_list, merito, nombre;
+non terminal portafolio;
+non terminal proyecto_list_opt, proyecto_list, proyecto;
+non terminal grupo_opt, grupo, companero_list, companero;
+non terminal tecnologias_opt, tecnologias;
+non terminal web_opt;
+non terminal merito_list_opt, merito_list, merito;
+non terminal nombre;
 
-/********* GRAMATICA *********/
+
+/* =========================
+   START
+   ========================= */
 start with cvs;
 
-cvs ::= global_var cv_list
-      | cv_list
+
+/* =========================
+   GRAMATICA (limpia)
+   ========================= */
+
+/* --- Entrada global --- */
+cvs ::= global_var_opt cv_list
       ;
+
+global_var_opt ::= global_var
+                 | /* empty */
+                 ;
+
+global_var ::= GVAR LL_A variable_list LL_C;
 
 cv_list ::= cv_list cv
           | cv
           ;
 
-global_var ::= GVAR LL_A variable_list LL_C;
+local_var_opt ::= local_var
+                | /* empty */
+                ;
 
 local_var ::= LVAR LL_A variable_list LL_C;
 
@@ -366,47 +403,49 @@ variable_list ::= variable_list variable
 
 variable ::= IDENT IG CONJPALYNUM PYC;
 
-/********* CV *********/
-cv ::= CV IDENT LL_A local_var datospersonales formacion idiomas experiencia habilidades portafolio LL_C
-     | CV IDENT LL_A local_var datospersonales formacion experiencia habilidades portafolio LL_C
-     | CV IDENT LL_A local_var datospersonales formacion idiomas habilidades portafolio LL_C
-     | CV IDENT LL_A local_var datospersonales formacion idiomas experiencia portafolio LL_C
-     | CV IDENT LL_A local_var datospersonales formacion idiomas experiencia habilidades LL_C
-     | CV IDENT LL_A local_var datospersonales formacion habilidades portafolio LL_C
-     | CV IDENT LL_A local_var datospersonales formacion experiencia portafolio LL_C
-     | CV IDENT LL_A local_var datospersonales formacion experiencia habilidades LL_C
-     | CV IDENT LL_A local_var datospersonales formacion idioma experiencia LL_C
-     | CV IDENT LL_A local_var datospersonales formacion idioma habilidades LL_C
-     | CV IDENT LL_A local_var datospersonales formacion idioma portafolio LL_C
-     | CV IDENT LL_A local_var datospersonales formacion idioma LL_C
-     | CV IDENT LL_A local_var datospersonales formacion experiencia LL_C
-     | CV IDENT LL_A local_var datospersonales formacion habilidades LL_C
-     | CV IDENT LL_A local_var datospersonales formacion portafolio LL_C
-     | CV IDENT LL_A local_var datospersonales formacion LL_C
-     | CV IDENT LL_A datospersonales formacion idiomas experiencia habilidades portafolio LL_C
-     | CV IDENT LL_A datospersonales formacion experiencia habilidades portafolio LL_C
-     | CV IDENT LL_A datospersonales formacion idiomas habilidades portafolio LL_C
-     | CV IDENT LL_A datospersonales formacion idiomas experiencia portafolio LL_C
-     | CV IDENT LL_A datospersonales formacion idiomas experiencia habilidades LL_C
-     | CV IDENT LL_A datospersonales formacion habilidades portafolio LL_C
-     | CV IDENT LL_A datospersonales formacion experiencia portafolio LL_C
-     | CV IDENT LL_A datospersonales formacion experiencia habilidades LL_C
-     | CV IDENT LL_A datospersonales formacion idioma experiencia LL_C
-     | CV IDENT LL_A datospersonales formacion idioma habilidades LL_C
-     | CV IDENT LL_A datospersonales formacion idioma portafolio LL_C
-     | CV IDENT LL_A datospersonales formacion idioma LL_C
-     | CV IDENT LL_A datospersonales formacion experiencia LL_C
-     | CV IDENT LL_A datospersonales formacion habilidades LL_C
-     | CV IDENT LL_A datospersonales formacion portafolio LL_C
-     | CV IDENT LL_A datospersonales formacion LL_C
+
+/* --- CV (orden fijo + secciones opcionales) --- */
+cv ::= CV IDENT LL_A local_var_opt datospersonales formacion idiomas_opt experiencia_opt habilidades_opt portafolio_opt LL_C
      ;
 
-/********* Datos personales *********/
-datospersonales ::= DP LL_A {: pushCtx("DATOS"); :} nomyape foto fecha bio contacto LL_C {: popCtx(); :}
-                  | DP LL_A {: pushCtx("DATOS"); :} nomyape fecha bio contacto LL_C {: popCtx(); :}
-                  | DP LL_A {: pushCtx("DATOS"); :} nomyape foto fecha contacto LL_C {: popCtx(); :}
-                  | DP LL_A {: pushCtx("DATOS"); :} nomyape fecha contacto LL_C {: popCtx(); :}
+non terminal idiomas_opt, experiencia_opt, habilidades_opt, portafolio_opt;
+
+idiomas_opt ::= idiomas
+             | /* empty */
+             ;
+
+experiencia_opt ::= experiencia
+                  | /* empty */
                   ;
+
+habilidades_opt ::= habilidades
+                  | /* empty */
+                  ;
+
+portafolio_opt ::= portafolio
+                 | /* empty */
+                 ;
+
+
+/* =========================
+   DATOS PERSONALES
+   ========================= */
+datospersonales ::= DP LL_A {: pushCtx("DATOS"); :}
+                    nomyape foto_opt fecha_opt bio_opt contacto
+                    LL_C {: popCtx(); :}
+                  ;
+
+foto_opt ::= foto
+           | /* empty */
+           ;
+
+fecha_opt ::= fecha
+            | /* empty */
+            ;
+
+bio_opt ::= bio
+          | /* empty */
+          ;
 
 nomyape ::= NOMYAPE PA_A CONJPALYNUM:x PA_C
             {:
@@ -422,363 +461,413 @@ nomyape ::= NOMYAPE PA_A CONJPALYNUM:x PA_C
             :}
           ;
 
-foto ::= FOTO PA_A RUTA:x PA_C {:
+foto ::= FOTO PA_A RUTA:x PA_C
+        {:
           if (inCtx("DATOS")) datos().put("foto", unquote(stripParensLike(x)));
-        :};
+        :}
+        ;
 
-fecha ::= FECHA PA_A FECHA_NUM:x PA_C {:
-          // Si la quisieras guardar en datos, haz datos().put("fecha", x)
-          // Para formacion la recogemos en tmpFormFecha via contexto:
-          if (inCtx("FORM_OFICIAL") || inCtx("FORM_COMP")) {
-              tmpFormFecha = unquote(stripParensLike(x));
-          }
-        :};
+fecha ::= FECHA PA_A FECHA_NUM:x PA_C
+        {:
+          String v = unquote(stripParensLike(x));
+          if (inCtx("FORM_OFICIAL") || inCtx("FORM_COMP")) tmpFormFecha = v;
+          // si quisieras guardarla en datos:
+          // if (inCtx("DATOS")) datos().put("fecha", v);
+        :}
+        ;
 
-bio ::= BIO PA_A CONJPALYNUM:x PA_C {:
-        if (inCtx("DATOS")) datos().put("bio", unquote(stripParensLike(x)));
-      :}
-      | BIO PA_A IDENT:x PA_C {:
-        if (inCtx("DATOS")) datos().put("bio", unquote(stripParensLike(x)));
-      :}
+bio ::= BIO PA_A CONJPALYNUM:x PA_C
+        {:
+          if (inCtx("DATOS")) datos().put("bio", unquote(stripParensLike(x)));
+        :}
+      | BIO PA_A IDENT:x PA_C
+        {:
+          if (inCtx("DATOS")) datos().put("bio", unquote(stripParensLike(x)));
+        :}
       ;
 
 contacto ::= CONTACTO LL_A email telefono redes LL_C;
 
-email ::= EMAIL PA_A MAIL:x PA_C {:
+email ::= EMAIL PA_A MAIL:x PA_C
+        {:
           if (inCtx("DATOS")) datos().put("email", unquote(stripParensLike(x)));
-        :};
-
-telefono ::= TELEFONO PA_A TFNO:x PA_C {:
-            if (inCtx("DATOS")) datos().put("telefono", unquote(stripParensLike(x)));
-          :};
-
-redes ::= REDES LL_A linkedin github web LL_C
-        | REDES LL_A github web LL_C
-        | REDES LL_A web LL_C
+        :}
         ;
 
-linkedin ::= LINKEDIN PA_A RUTA:x PA_C {:
-              if (inCtx("DATOS")) datos().put("linkedin", unquote(stripParensLike(x)));
-            :};
+telefono ::= TELEFONO PA_A TFNO:x PA_C
+          {:
+            if (inCtx("DATOS")) datos().put("telefono", unquote(stripParensLike(x)));
+          :}
+          ;
 
-github ::= GITHUB PA_A RUTA:x PA_C {:
-            if (inCtx("DATOS")) datos().put("github", unquote(stripParensLike(x)));
-            // En COMPANERO lo ignoramos (no lo necesita la plantilla)
-          :};
+/* redes: linkedin/github opcionales, web obligatorio */
+redes ::= REDES LL_A linkedin_opt github_opt web LL_C;
 
-web ::= WEB PA_A RUTA:x PA_C {:
+linkedin_opt ::= linkedin
+               | /* empty */
+               ;
+
+github_opt ::= github
+             | /* empty */
+             ;
+
+linkedin ::= LINKEDIN PA_A RUTA:x PA_C
+          {:
+            if (inCtx("DATOS")) datos().put("linkedin", unquote(stripParensLike(x)));
+          :}
+          ;
+
+github ::= GITHUB PA_A RUTA:x PA_C
+        {:
+          if (inCtx("DATOS")) datos().put("github", unquote(stripParensLike(x)));
+        :}
+        ;
+
+web ::= WEB PA_A RUTA:x PA_C
+      {:
         String v = unquote(stripParensLike(x));
         if (inCtx("PROYECTO")) tmpProyWeb = v;
         else if (inCtx("DATOS")) datos().put("web", v);
-      :};
+      :}
+      ;
 
-/********* Formacion *********/
-formacion ::= FORMACION LL_A oficial_list complementaria_list LL_C
-            | FORMACION LL_A oficial_list LL_C
+
+/* =========================
+   FORMACION (limpia)
+   ========================= */
+formacion ::= FORMACION LL_A oficial_list complementaria_list_opt LL_C
             ;
+
+complementaria_list_opt ::= complementaria_list
+                          | /* empty */
+                          ;
 
 oficial_list ::= oficial_list oficial
                | oficial
                ;
 
-oficial ::= OFICIAL LL_A {: resetFormacionTemps(); pushCtx("FORM_OFICIAL"); :}
-            titulo expedidor descripcion logros fecha LL_C
-            {:
-              // fecha ya se capturo en tmpFormFecha (por contexto)
-              commitFormacionItem("oficial");
-              popCtx();
-            :}
-          | OFICIAL LL_A {: resetFormacionTemps(); pushCtx("FORM_OFICIAL"); :}
-            titulo expedidor descripcion fecha LL_C
-            {:
-              commitFormacionItem("oficial");
-              popCtx();
-            :}
-          | OFICIAL LL_A {: resetFormacionTemps(); pushCtx("FORM_OFICIAL"); :}
-            titulo expedidor logros fecha LL_C
-            {:
-              commitFormacionItem("oficial");
-              popCtx();
-            :}
-          | OFICIAL LL_A {: resetFormacionTemps(); pushCtx("FORM_OFICIAL"); :}
-            titulo expedidor fecha LL_C
+/* oficial: sin 4 alternativas -> descripcion/logros opcionales */
+oficial ::= OFICIAL LL_A
+            {: resetFormacionTemps(); pushCtx("FORM_OFICIAL"); :}
+            titulo expedidor descripcion_opt logros_opt fecha
+            LL_C
             {:
               commitFormacionItem("oficial");
               popCtx();
             :}
           ;
 
-titulo ::= TITULO PA_A CONJPALYNUM:x PA_C {:
-            if (inCtx("FORM_OFICIAL") || inCtx("FORM_COMP")) tmpFormTitulo = unquote(stripParensLike(x));
-         :}
-         | TITULO PA_A IDENT:x PA_C {:
-            if (inCtx("FORM_OFICIAL") || inCtx("FORM_COMP")) tmpFormTitulo = unquote(stripParensLike(x));
-         :}
-         ;
+descripcion_opt ::= descripcion
+                  | /* empty */
+                  ;
 
-expedidor ::= EXPEDIDOR PA_A CONJPALYNUM:x PA_C {:
-                if (inCtx("FORM_OFICIAL") || inCtx("FORM_COMP")) tmpFormExpedidor = unquote(stripParensLike(x));
-                else if (inCtx("IDIOMA")) tmpIdiomaExpedidor = unquote(stripParensLike(x));
-             :}
-            | EXPEDIDOR PA_A IDENT:x PA_C {:
-                if (inCtx("FORM_OFICIAL") || inCtx("FORM_COMP")) tmpFormExpedidor = unquote(stripParensLike(x));
-                else if (inCtx("IDIOMA")) tmpIdiomaExpedidor = unquote(stripParensLike(x));
-             :}
+logros_opt ::= logros
+             | /* empty */
+             ;
+
+titulo ::= TITULO PA_A CONJPALYNUM:x PA_C
+         {:
+           if (inCtx("FORM_OFICIAL") || inCtx("FORM_COMP")) tmpFormTitulo = unquote(stripParensLike(x));
+         :}
+       | TITULO PA_A IDENT:x PA_C
+         {:
+           if (inCtx("FORM_OFICIAL") || inCtx("FORM_COMP")) tmpFormTitulo = unquote(stripParensLike(x));
+         :}
+       ;
+
+expedidor ::= EXPEDIDOR PA_A CONJPALYNUM:x PA_C
+            {:
+              String v = unquote(stripParensLike(x));
+              if (inCtx("FORM_OFICIAL") || inCtx("FORM_COMP")) tmpFormExpedidor = v;
+              else if (inCtx("IDIOMA")) tmpIdiomaExpedidor = v;
+            :}
+          | EXPEDIDOR PA_A IDENT:x PA_C
+            {:
+              String v = unquote(stripParensLike(x));
+              if (inCtx("FORM_OFICIAL") || inCtx("FORM_COMP")) tmpFormExpedidor = v;
+              else if (inCtx("IDIOMA")) tmpIdiomaExpedidor = v;
+            :}
+          ;
+
+descripcion ::= DESCRIPCION PA_A CONJPALYNUM:x PA_C
+              {:
+                String v = unquote(stripParensLike(x));
+                if (inCtx("FORM_OFICIAL") || inCtx("FORM_COMP")) tmpFormDesc = v;
+                else if (inCtx("LABORAL") || inCtx("VOLUNTARIADO")) tmpXPDesc = v;
+                else if (inCtx("PROYECTO")) tmpProyDesc = v;
+                else if (inCtx("MERITO")) tmpMeritoDesc = v;
+              :}
+            | DESCRIPCION PA_A IDENT:x PA_C
+              {:
+                String v = unquote(stripParensLike(x));
+                if (inCtx("FORM_OFICIAL") || inCtx("FORM_COMP")) tmpFormDesc = v;
+                else if (inCtx("LABORAL") || inCtx("VOLUNTARIADO")) tmpXPDesc = v;
+                else if (inCtx("PROYECTO")) tmpProyDesc = v;
+                else if (inCtx("MERITO")) tmpMeritoDesc = v;
+              :}
             ;
 
-descripcion ::= DESCRIPCION PA_A CONJPALYNUM:x PA_C {:
-                  String v = unquote(stripParensLike(x));
-                  if (inCtx("FORM_OFICIAL") || inCtx("FORM_COMP")) tmpFormDesc = v;
-                  else if (inCtx("LABORAL") || inCtx("VOLUNTARIADO")) tmpXPDesc = v;
-                  else if (inCtx("PROYECTO")) tmpProyDesc = v;
-                  else if (inCtx("MERITO")) tmpMeritoDesc = v;
-               :}
-              | DESCRIPCION PA_A IDENT:x PA_C {:
-                  String v = unquote(stripParensLike(x));
-                  if (inCtx("FORM_OFICIAL") || inCtx("FORM_COMP")) tmpFormDesc = v;
-                  else if (inCtx("LABORAL") || inCtx("VOLUNTARIADO")) tmpXPDesc = v;
-                  else if (inCtx("PROYECTO")) tmpProyDesc = v;
-                  else if (inCtx("MERITO")) tmpMeritoDesc = v;
-               :}
-              ;
-
-logros ::= LOGROS PA_A CONJPALYNUM:x PA_C {:
-            if (inCtx("FORM_OFICIAL") || inCtx("FORM_COMP")) tmpFormLogros = unquote(stripParensLike(x));
+logros ::= LOGROS PA_A CONJPALYNUM:x PA_C
+         {:
+           if (inCtx("FORM_OFICIAL") || inCtx("FORM_COMP")) tmpFormLogros = unquote(stripParensLike(x));
          :}
-         | LOGROS PA_A IDENT:x PA_C {:
-            if (inCtx("FORM_OFICIAL") || inCtx("FORM_COMP")) tmpFormLogros = unquote(stripParensLike(x));
+       | LOGROS PA_A IDENT:x PA_C
+         {:
+           if (inCtx("FORM_OFICIAL") || inCtx("FORM_COMP")) tmpFormLogros = unquote(stripParensLike(x));
          :}
-         ;
+       ;
 
+/* complementaria: limpia con certificado/horas opcionales */
 complementaria_list ::= complementaria_list complementaria
                       | complementaria
                       ;
 
-complementaria ::= COMPLEMENTARIA LL_A {: resetFormacionTemps(); pushCtx("FORM_COMP"); :}
-                   titulo certificado expedidor horas fecha LL_C
-                   {:
-                     commitFormacionItem("complementaria");
-                     popCtx();
-                   :}
-                 | COMPLEMENTARIA LL_A {: resetFormacionTemps(); pushCtx("FORM_COMP"); :}
-                   titulo certificado expedidor fecha LL_C
-                   {:
-                     commitFormacionItem("complementaria");
-                     popCtx();
-                   :}
-                 | COMPLEMENTARIA LL_A {: resetFormacionTemps(); pushCtx("FORM_COMP"); :}
-                   titulo expedidor horas fecha LL_C
-                   {:
-                     commitFormacionItem("complementaria");
-                     popCtx();
-                   :}
-                 | COMPLEMENTARIA LL_A {: resetFormacionTemps(); pushCtx("FORM_COMP"); :}
-                   titulo expedidor fecha LL_C
-                   {:
-                     commitFormacionItem("complementaria");
-                     popCtx();
-                   :}
-                 ;
+complementaria ::= COMPLEMENTARIA LL_A
+                  {: resetFormacionTemps(); pushCtx("FORM_COMP"); :}
+                  titulo certificado_opt expedidor horas_opt fecha
+                  LL_C
+                  {:
+                    commitFormacionItem("complementaria");
+                    popCtx();
+                  :}
+                ;
 
-certificado ::= CERTIFICADO PA_A BOOL:x PA_C {:
-                  // opcional: podrias decidir en_curso si certificado == "No"
-                  // tmpFormEnCurso = "No".equalsIgnoreCase(unquote(x));
-                :};
+certificado_opt ::= certificado
+                  | /* empty */
+                  ;
 
-horas ::= HORAS PA_A NUM:x PA_C {:
+horas_opt ::= horas
+            | /* empty */
+            ;
+
+certificado ::= CERTIFICADO PA_A BOOL:x PA_C
+              {:
+                // opcional: puedes usar esto para en_curso
+                // String v = unquote(stripParensLike(x));
+                // tmpFormEnCurso = "No".equalsIgnoreCase(v);
+              :}
+              ;
+
+horas ::= HORAS PA_A NUM:x PA_C
+        {:
           if (inCtx("LABORAL") || inCtx("VOLUNTARIADO")) {
-              try { tmpXPHoras = Integer.valueOf(unquote(stripParensLike(x))); } catch(Exception e) { tmpXPHoras = null; }
+              try { tmpXPHoras = Integer.valueOf(unquote(stripParensLike(x))); }
+              catch(Exception e) { tmpXPHoras = null; }
           }
-        :};
+        :}
+        ;
 
-/********* Idiomas *********/
+
+/* =========================
+   IDIOMAS
+   ========================= */
 idiomas ::= IDIOMAS LL_A idioma_list LL_C;
 
 idioma_list ::= idioma_list idioma
               | idioma
               ;
 
-idioma ::= IDIOMA LL_A {: resetIdiomaTemps(); pushCtx("IDIOMA"); :} nombre nvi expedidor LL_C
-           {:
-             commitIdiomaItem();
-             popCtx();
-           :}
-         | IDIOMA LL_A {: resetIdiomaTemps(); pushCtx("IDIOMA"); :} nombre nvi LL_C
-           {:
-             commitIdiomaItem();
-             popCtx();
-           :}
-         ;
+idioma ::= IDIOMA LL_A
+          {: resetIdiomaTemps(); pushCtx("IDIOMA"); :}
+          nombre nvi expedidor_opt
+          LL_C
+          {:
+            commitIdiomaItem();
+            popCtx();
+          :}
+        ;
 
-nvi ::= NIVEL PA_A NVI:x PA_C {:
+non terminal expedidor_opt;
+
+expedidor_opt ::= expedidor
+                | /* empty */
+                ;
+
+nvi ::= NIVEL PA_A NVI:x PA_C
+      {:
         if (inCtx("IDIOMA")) tmpIdiomaNivel = unquote(stripParensLike(x));
-      :};
+      :}
+      ;
 
-/********* Experiencia *********/
-experiencia ::= EXPERIENCIA LL_A laboral_list voluntariado_list LL_C
-              | EXPERIENCIA LL_A laboral_list LL_C
+
+/* =========================
+   EXPERIENCIA (limpia)
+   ========================= */
+experiencia ::= EXPERIENCIA LL_A laboral_list voluntariado_list_opt LL_C
               | EXPERIENCIA LL_A voluntariado_list LL_C
               ;
+
+voluntariado_list_opt ::= voluntariado_list
+                        | /* empty */
+                        ;
 
 laboral_list ::= laboral_list laboral
                | laboral
                ;
 
-laboral ::= LABORAL LL_A {: resetXPTemps("laboral"); pushCtx("LABORAL"); :}
-            puesto horas organizacion responsabilidades LL_C
-            {:
-              commitXPItem();
-              popCtx();
-            :}
-          | LABORAL LL_A {: resetXPTemps("laboral"); pushCtx("LABORAL"); :}
-            puesto horas organizacion LL_C
-            {:
-              commitXPItem();
-              popCtx();
-            :}
-          ;
+laboral ::= LABORAL LL_A
+          {: resetXPTemps("laboral"); pushCtx("LABORAL"); :}
+          puesto horas_opt organizacion responsabilidades_opt
+          LL_C
+          {:
+            commitXPItem();
+            popCtx();
+          :}
+        ;
 
-puesto ::= PUESTO PA_A CONJPALYNUM:x PA_C {:
-            if (inCtx("LABORAL") || inCtx("VOLUNTARIADO")) tmpXPPuesto = unquote(stripParensLike(x));
-         :}
-         | PUESTO PA_A IDENT:x PA_C {:
-            if (inCtx("LABORAL") || inCtx("VOLUNTARIADO")) tmpXPPuesto = unquote(stripParensLike(x));
-         :}
-         ;
-
-responsabilidades ::= RESPONSABILIDADES PA_A CONJPALYNUM:x PA_C {:
-                        if (inCtx("LABORAL")) tmpXPDesc = unquote(stripParensLike(x));
-                     :}
-                    | RESPONSABILIDADES PA_A IDENT:x PA_C {:
-                        if (inCtx("LABORAL")) tmpXPDesc = unquote(stripParensLike(x));
-                     :}
-                    ;
+responsabilidades_opt ::= responsabilidades
+                        | /* empty */
+                        ;
 
 voluntariado_list ::= voluntariado_list voluntariado
                     | voluntariado
                     ;
 
-voluntariado ::= VOLUNTARIADO LL_A {: resetXPTemps("voluntariado"); pushCtx("VOLUNTARIADO"); :}
-                 puesto descripcion horas organizacion LL_C
-                 {:
-                   commitXPItem();
-                   popCtx();
-                 :}
-               ;
+voluntariado ::= VOLUNTARIADO LL_A
+               {: resetXPTemps("voluntariado"); pushCtx("VOLUNTARIADO"); :}
+               puesto descripcion_opt horas_opt organizacion
+               LL_C
+               {:
+                 commitXPItem();
+                 popCtx();
+               :}
+             ;
 
-organizacion ::= ORGANIZACION PA_A CONJPALYNUM:x PA_C {:
-                   if (inCtx("LABORAL") || inCtx("VOLUNTARIADO")) tmpXPOrg = unquote(stripParensLike(x));
-                :}
-               | ORGANIZACION PA_A IDENT:x PA_C {:
-                   if (inCtx("LABORAL") || inCtx("VOLUNTARIADO")) tmpXPOrg = unquote(stripParensLike(x));
-                :}
-               ;
+puesto ::= PUESTO PA_A CONJPALYNUM:x PA_C
+        {:
+          if (inCtx("LABORAL") || inCtx("VOLUNTARIADO")) tmpXPPuesto = unquote(stripParensLike(x));
+        :}
+      | PUESTO PA_A IDENT:x PA_C
+        {:
+          if (inCtx("LABORAL") || inCtx("VOLUNTARIADO")) tmpXPPuesto = unquote(stripParensLike(x));
+        :}
+      ;
 
-/********* Habilidades *********/
-habilidades ::= HABILIDADES LL_A soft hard LL_C
-              | HABILIDADES LL_A soft LL_C
+responsabilidades ::= RESPONSABILIDADES PA_A CONJPALYNUM:x PA_C
+                    {:
+                      if (inCtx("LABORAL")) tmpXPDesc = unquote(stripParensLike(x));
+                    :}
+                  | RESPONSABILIDADES PA_A IDENT:x PA_C
+                    {:
+                      if (inCtx("LABORAL")) tmpXPDesc = unquote(stripParensLike(x));
+                    :}
+                  ;
+
+organizacion ::= ORGANIZACION PA_A CONJPALYNUM:x PA_C
+              {:
+                if (inCtx("LABORAL") || inCtx("VOLUNTARIADO")) tmpXPOrg = unquote(stripParensLike(x));
+              :}
+            | ORGANIZACION PA_A IDENT:x PA_C
+              {:
+                if (inCtx("LABORAL") || inCtx("VOLUNTARIADO")) tmpXPOrg = unquote(stripParensLike(x));
+              :}
+            ;
+
+
+/* =========================
+   HABILIDADES (limpia)
+   ========================= */
+habilidades ::= HABILIDADES LL_A soft hard_opt LL_C
               | HABILIDADES LL_A hard LL_C
               ;
 
 soft ::= SOFT LL_A {: pushCtx("SOFT"); :} habilidad_list LL_C {: popCtx(); :};
+
+hard_opt ::= hard
+           | /* empty */
+           ;
+
+hard ::= HARD LL_A {: pushCtx("HARD"); :} categoria_list LL_C {: popCtx(); :};
 
 habilidad_list ::= habilidad_list CO habilidad
                  | habilidad
                  ;
 
 habilidad ::= HABILIDAD PA_A CONJPALYNUM:x PA_C
-              {:
-                String v = unquote(stripParensLike(x));
-                if (inCtx("SOFT")) addSoftSkill(v);
-                else if (inCtx("HARD")) tmpHardHabilidad = v;
-              :}
-            | HABILIDAD PA_A IDENT:x PA_C
-              {:
-                String v = unquote(stripParensLike(x));
-                if (inCtx("SOFT")) addSoftSkill(v);
-                else if (inCtx("HARD")) tmpHardHabilidad = v;
-              :}
-            ;
-
-hard ::= HARD LL_A {: pushCtx("HARD"); :} categoria_list LL_C {: popCtx(); :};
+            {:
+              String v = unquote(stripParensLike(x));
+              if (inCtx("SOFT")) addSoftSkill(v);
+              else if (inCtx("HARD")) tmpHardHabilidad = v;
+            :}
+          | HABILIDAD PA_A IDENT:x PA_C
+            {:
+              String v = unquote(stripParensLike(x));
+              if (inCtx("SOFT")) addSoftSkill(v);
+              else if (inCtx("HARD")) tmpHardHabilidad = v;
+            :}
+          ;
 
 categoria_list ::= categoria_list categoria
                  | categoria
                  ;
 
-categoria ::= CATEGORIA LL_A {: tmpHardCategoria = null; :} nombre habilidad_nvh_list LL_C ;
+categoria ::= CATEGORIA LL_A
+            {: tmpHardCategoria = null; :}
+            nombre habilidad_nvh_list
+            LL_C
+            ;
 
 habilidad_nvh_list ::= habilidad_nvh_list CO habilidad nvh
-                       {:
-                         addHardSkill(tmpHardCategoria, tmpHardHabilidad, tmpHardNivel);
-                         tmpHardHabilidad = null;
-                         tmpHardNivel = null;
-                       :}
-                     | habilidad nvh
-                       {:
-                         addHardSkill(tmpHardCategoria, tmpHardHabilidad, tmpHardNivel);
-                         tmpHardHabilidad = null;
-                         tmpHardNivel = null;
-                       :}
-                     ;
+                     {:
+                       addHardSkill(tmpHardCategoria, tmpHardHabilidad, tmpHardNivel);
+                       tmpHardHabilidad = null;
+                       tmpHardNivel = null;
+                     :}
+                   | habilidad nvh
+                     {:
+                       addHardSkill(tmpHardCategoria, tmpHardHabilidad, tmpHardNivel);
+                       tmpHardHabilidad = null;
+                       tmpHardNivel = null;
+                     :}
+                   ;
 
-nvh ::= NVHAB PA_A NVH:x PA_C {:
+nvh ::= NVHAB PA_A NVH:x PA_C
+      {:
         if (inCtx("HARD")) tmpHardNivel = unquote(stripParensLike(x));
-      :};
+      :}
+      ;
 
-/********* Portafolio *********/
-portafolio ::= PORTAFOLIO LL_A proyecto_list merito_list LL_C
-             | PORTAFOLIO LL_A proyecto_list LL_C
-             | PORTAFOLIO LL_A merito_list LL_C
+
+/* =========================
+   PORTAFOLIO (limpia)
+   ========================= */
+portafolio ::= PORTAFOLIO LL_A proyecto_list_opt merito_list_opt LL_C
              ;
+
+proyecto_list_opt ::= proyecto_list
+                    | /* empty */
+                    ;
+
+merito_list_opt ::= merito_list
+                  | /* empty */
+                  ;
 
 proyecto_list ::= proyecto_list proyecto
                 | proyecto
                 ;
 
-proyecto ::= PROYECTO LL_A {: resetProyectoTemps(); pushCtx("PROYECTO"); :}
-             nombre grupo descripcion tecnologias web LL_C
-             {:
-               commitProyectoItem();
-               popCtx();
-             :}
-           | PROYECTO LL_A {: resetProyectoTemps(); pushCtx("PROYECTO"); :}
-             nombre descripcion tecnologias web LL_C
-             {:
-               commitProyectoItem();
-               popCtx();
-             :}
-           | PROYECTO LL_A {: resetProyectoTemps(); pushCtx("PROYECTO"); :}
-             nombre grupo descripcion tecnologias LL_C
-             {:
-               commitProyectoItem();
-               popCtx();
-             :}
-           | PROYECTO LL_A {: resetProyectoTemps(); pushCtx("PROYECTO"); :}
-             nombre descripcion tecnologias LL_C
-             {:
-               commitProyectoItem();
-               popCtx();
-             :}
-           ;
-
-nombre ::= NOMBRE PA_A CONJPALYNUM:x PA_C
+/* proyecto: grupo/web/tecnologias opcionales */
+proyecto ::= PROYECTO LL_A
+           {: resetProyectoTemps(); pushCtx("PROYECTO"); :}
+           nombre grupo_opt descripcion_opt tecnologias_opt web_opt
+           LL_C
            {:
-             String v = unquote(stripParensLike(x));
-             if (inCtx("IDIOMA")) tmpIdiomaNombre = v;
-             else if (inCtx("PROYECTO")) tmpProyNombre = v;
-             else if (inCtx("MERITO")) tmpMeritoNombre = v;
-             else if (inCtx("HARD")) tmpHardCategoria = v; // usado como nombre de categoria en hard
-           :}
-         | NOMBRE PA_A IDENT:x PA_C
-           {:
-             String v = unquote(stripParensLike(x));
-             if (inCtx("IDIOMA")) tmpIdiomaNombre = v;
-             else if (inCtx("PROYECTO")) tmpProyNombre = v;
-             else if (inCtx("MERITO")) tmpMeritoNombre = v;
-             else if (inCtx("HARD")) tmpHardCategoria = v;
+             commitProyectoItem();
+             popCtx();
            :}
          ;
+
+grupo_opt ::= grupo
+            | /* empty */
+            ;
+
+tecnologias_opt ::= tecnologias
+                  | /* empty */
+                  ;
+
+web_opt ::= web
+          | /* empty */
+          ;
 
 grupo ::= GRUPO LL_A companero_list LL_C;
 
@@ -786,40 +875,60 @@ companero_list ::= companero_list companero
                  | companero
                  ;
 
-companero ::= COMPANERO LL_A {: pushCtx("COMPANERO"); tmpCompaneroNombre = null; :}
-              nomyape github LL_C
+companero ::= COMPANERO LL_A
+             {: pushCtx("COMPANERO"); tmpCompaneroNombre = null; :}
+             nomyape github_opt
+             LL_C
+             {:
+               if (tmpCompaneroNombre != null && !tmpCompaneroNombre.trim().isEmpty()) {
+                   tmpProyGrupo.add(tmpCompaneroNombre);
+               }
+               popCtx();
+             :}
+           ;
+
+tecnologias ::= TECNOLOGIAS PA_A CONJPALYNUM:x PA_C
               {:
-                if (tmpCompaneroNombre != null && !tmpCompaneroNombre.trim().isEmpty()) {
-                    tmpProyGrupo.add(tmpCompaneroNombre);
-                }
-                popCtx();
+                if (inCtx("PROYECTO")) tmpProyTecnologias = splitTecnologias(x);
               :}
-            | COMPANERO LL_A {: pushCtx("COMPANERO"); tmpCompaneroNombre = null; :}
-              nomyape LL_C
+            | TECNOLOGIAS PA_A IDENT:x PA_C
               {:
-                if (tmpCompaneroNombre != null && !tmpCompaneroNombre.trim().isEmpty()) {
-                    tmpProyGrupo.add(tmpCompaneroNombre);
-                }
-                popCtx();
+                if (inCtx("PROYECTO")) tmpProyTecnologias = splitTecnologias(x);
               :}
             ;
-
-tecnologias ::= TECNOLOGIAS PA_A CONJPALYNUM:x PA_C {:
-                  if (inCtx("PROYECTO")) tmpProyTecnologias = splitTecnologias(x);
-               :}
-              | TECNOLOGIAS PA_A IDENT:x PA_C {:
-                  if (inCtx("PROYECTO")) tmpProyTecnologias = splitTecnologias(x);
-               :}
-              ;
 
 merito_list ::= merito_list merito
               | merito
               ;
 
-merito ::= MERITOS LL_A {: resetMeritoTemps(); pushCtx("MERITO"); :}
-           nombre descripcion LL_C
-           {:
-             commitMeritoItem();
-             popCtx();
-           :}
-        ;
+merito ::= MERITOS LL_A
+         {: resetMeritoTemps(); pushCtx("MERITO"); :}
+         nombre descripcion
+         LL_C
+         {:
+           commitMeritoItem();
+           popCtx();
+         :}
+       ;
+
+
+/* =========================
+   nombre (multiuso por contexto)
+   ========================= */
+nombre ::= NOMBRE PA_A CONJPALYNUM:x PA_C
+        {:
+          String v = unquote(stripParensLike(x));
+          if (inCtx("IDIOMA")) tmpIdiomaNombre = v;
+          else if (inCtx("PROYECTO")) tmpProyNombre = v;
+          else if (inCtx("MERITO")) tmpMeritoNombre = v;
+          else if (inCtx("HARD")) tmpHardCategoria = v;  // nombre(categoria) dentro de hard
+        :}
+      | NOMBRE PA_A IDENT:x PA_C
+        {:
+          String v = unquote(stripParensLike(x));
+          if (inCtx("IDIOMA")) tmpIdiomaNombre = v;
+          else if (inCtx("PROYECTO")) tmpProyNombre = v;
+          else if (inCtx("MERITO")) tmpMeritoNombre = v;
+          else if (inCtx("HARD")) tmpHardCategoria = v;
+        :}
+      ;
