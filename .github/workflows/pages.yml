@@ -60,20 +60,16 @@ jobs:
           curl -L -o antlr.jar https://www.antlr.org/download/antlr-4.13.2-complete.jar
       
           mkdir -p src/antlr_gen
-          rm -f src/antlr_gen/* || true
+          rm -rf src/antlr_gen/*
       
-          # Generar parser/lexer en Python
           java -jar antlr.jar -Dlanguage=Python3 -visitor -o src/antlr_gen gramatica/antlr/CVLang.g4
       
-          echo "== Generated files =="
-          ls -la src/antlr_gen
+          echo "== Generated tree =="
+          find src/antlr_gen -maxdepth 4 -type f -name "CVLangLexer.py" -o -name "CVLangParser.py" -o -name "*.py" | sed -n '1,120p'
       
-          # Asegurar que existen (si no, abortar con mensaje útil)
-          test -f src/antlr_gen/CVLangLexer.py
-          test -f src/antlr_gen/CVLangParser.py
-      
-          # Ejecutar con PYTHONPATH correcto
-          PYTHONPATH="$(pwd)/src:$(pwd)/src/antlr_gen" \
+          # Si el paquete es gramatica, los ficheros estaran en src/antlr_gen/gramatica/
+          # Ponemos AMBAS rutas en PYTHONPATH para cubrir los dos casos.
+          PYTHONPATH="$(pwd)/src:$(pwd)/src/antlr_gen:$(pwd)/src/antlr_gen/gramatica" \
             python src/main.py --input "$INPUT_PATH" --template "$TEMPLATE_PATH" --out index.html
         
 
