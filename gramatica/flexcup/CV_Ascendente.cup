@@ -368,6 +368,7 @@ non terminal nombre;
 
 non terminal idiomas_opt, experiencia_opt, habilidades_opt, portafolio_opt;
 non terminal expedidor_opt;
+non terminal responsabilidades_opt;
 
 /* =========================
    START
